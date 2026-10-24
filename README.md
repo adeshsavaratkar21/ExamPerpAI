@@ -1,128 +1,163 @@
 # ExamPrepAI 🚀
-### Production-Grade AI Exam Preparation & Readiness Platform
+### Production-Grade AI Exam Preparation, Syllabus Mastery & Placement Platform
 
-**ExamPrepAI** is a full-stack, AI-powered exam preparation platform engineered for university semester exams and competitive technical assessments. It bridges the gap between static syllabi and dynamic past papers using intelligent document processing, adaptive daily quizzes, parallel Dual-AI structured revision sheets, and strategic readiness analytics.
+**ExamPrepAI** is a comprehensive, full-stack educational ecosystem engineered for university semester exams and competitive technical placement interviews. It synthesizes static course syllabi, past examination papers (PYQs), and prescribed textbooks with generative AI while providing a complete 466-problem DSA roadmap, live LeetCode profile synchronization, and interactive architectural diagrams for core computer science subjects.
 
 ---
 
 ## 🌟 Core Architecture & Key Pillars
 
+```text
++-------------------------------------------------------------------------------------------------------------+
+|                                              ExamPrepAI PLATFORM                                            |
++-------------------------------------------------------------------------------------------------------------+
+| 1. University Exam Engine            | 2. DSA & Placement Mode           | 3. Core CS Technical Hub         |
+| - PYQ Extraction (pypdf/pdfplumber)  | - Full Striver A2Z Sheet (466 Qs) | - Interactive Architecture Visual|
+| - Textbook & Slide RAG (PDF/PPTX)    | - Direct LeetCode Problem Links   | - CCN, OS, DBMS, OOPs, SQL       |
+| - Adaptive 10-Question Practice Quiz | - Live LeetCode Profile Live-Sync | - TCP 3-Way Handshake Simulator  |
+| - Dual-AI Revision Notes (Gemini+GPT)| - Dedicated DSA Practice Tracker  | - OSI vs TCP/IP Protocol Stack   |
+| - Strategic 4-Quadrant Readiness     | - Easy / Medium / Hard Breakdown  | - Virtual Memory & ACID Pillars  |
++-------------------------------------------------------------------------------------------------------------+
+                                       |                                  |
+                                       v                                  v
+                 FastAPI Backend (Python 3.11+, SQLAlchemy)      Vite React UI (Tailwind CSS, Light Theme)
 ```
-+----------------------------------------------------------------------------------------------------+
-|                                         ExamPrepAI PLATFORM                                        |
-+----------------------------------------------------------------------------------------------------+
-| 1. PYQ Processing       | 2. Daily Chapter Quiz    | 3. Dual-AI 1-Page Notes  | 4. Readiness Tracker|
-| - pypdf / pdfplumber    | - 10-Question Engine     | - Parallel GenAI Engine  | - Weightage Matrix  |
-| - Gemini LLM Structuring| - Instant Scoring & Math | - Gemini (Theory/Proofs) | - 4-Quadrant Focus  |
-| - Subject/Type/Marks Map| - AI Explanations + Traps| - OpenAI (Mnemonics/Tab) | - Urgent Alerts     |
-+----------------------------------------------------------------------------------------------------+
-                                      |                                  |
-                                      v                                  v
-                FastAPI Backend (Python 3.11+, SQLAlchemy)      Vite React UI (Tailwind CSS)
-```
 
-### 1. 📂 PYQ Document Processing
-- **PDF Extraction**: Ingests official Previous Year Question (PYQ) papers using `pypdf` and `pdfplumber`.
-- **LLM Structured Output**: Parses raw question text into structured schemas categorized by:
-  - Subject and Chapter mapping
-  - Question Type (`MCQ`, `Short`, `Long`, `Numerical`)
-  - Marks weightage (e.g., 2, 5, 8, 10 Marks)
-  - Solution blueprint / ideal grader outline
-  - Difficulty ranking (`Easy`, `Medium`, `Hard`)
-- **Interactive Question Bank**: Real-time filtering by chapter, marks, type, and keyword search with one-click "Practice in Quiz" routing.
+---
 
-### 2. ⚡ Daily Chapter Practice Quiz
-- **Adaptive 10-Question Engine**: Generates interactive 10-question practice quizzes based on previous PYQs and conceptual variants.
-- **Multiple Modes**:
-  - `Standard`: Balanced mix of past paper questions and conceptual checks.
-  - `PYQ-Only`: Real questions extracted from uploaded semester papers.
-  - `Conceptual Variations`: Professor traps, edge cases, and numerical variations.
-- **Real-Time Evaluation**: Instant score calculation, accuracy percentages, celebratory confetti animations (`canvas-confetti`), and question-by-question breakdowns with verified AI explanations.
+## 🎯 Key Feature Modules
 
-### 3. 📑 Dual-AI 1-Page Summary Revision Notes
-When a chapter is completed, the system generates two distinct, high-yield 1-page structured revision summaries in parallel:
-- **Left Column (Google Gemini GenAI)**:
-  - Rigorous theoretical definitions & axiomatic foundations
-  - Step-by-step mathematical derivations & algorithm mechanics
-  - Critical professor traps & common student exam mistakes
-  - 3 high-probability university question patterns
-- **Right Column (OpenAI ChatGPT)**:
-  - High-retention memory mnemonics (catchy visual hooks and acronyms)
-  - Fast formula sheet & complexity cheat sheets
-  - Side-by-side comparison tables (e.g., Preemptive vs Non-Preemptive, Paging vs Segmentation)
-  - 60-second rapid-fire cram bullet points
-- **Export Capabilities**:
-  - Synchronized and independent scrolling
-  - One-click copy to clipboard
-  - Native `.md` Markdown download
-  - One-click clean printable 1-page PDF export via backend `reportlab` or browser print stylesheets.
+### 1. 🎓 University Exam Preparation & RAG Engine
+- **PYQ Paper Ingestion & Categorization**:
+  - Uploads past university examination PDFs.
+  - Automatically parses and categorizes questions by chapter, difficulty (`Easy`, `Medium`, `Hard`), question format (`MCQ`, `Short`, `Long`, `Numerical`), and marks weightage.
+- **RAG-Powered Textbook & Slide Retrieval**:
+  - Scans uploaded prescribed textbooks (`.pdf`) and lecture slides (`.pptx`).
+  - Utilizes keyword-scored document retrieval (`extract_book_context_for_chapter`) to ground AI note generation strictly within the university syllabus.
+- **Dual-AI 1-Page Revision Summaries**:
+  - **Google Gemini (GenAI SDK)**: Rigorous conceptual foundations, mathematical derivations, professor traps, and exam-grade answers.
+  - **OpenAI (GPT-4o / GPT-4o-mini)**: High-retention visual mnemonics, fast formula sheets, side-by-side comparison tables, and 60-second cram sheets.
+  - One-click clean printable PDF and Markdown export.
+- **Adaptive Diagnostic Quizzes**:
+  - 10-question chapter quizzes with instant scoring, timer, and detailed answer explanations.
+- **Strategic Readiness Radar**:
+  - Real-time calculation of overall exam readiness based on quiz accuracy, chapter completion, and practice frequency.
+  - 4-Quadrant focus matrix identifying high-weightage GPA hazards.
 
-### 4. 🎯 Strategic Exam Readiness Tracker
-- **Customizable Weightage**: Input subject total marks (e.g. 100, 70, 80) and chapter-wise weightage distributions.
-- **Dynamic Readiness Index**:
-  $$\text{Readiness Index} = (\text{Quiz Accuracy} \times 0.65) + (\text{Chapter Completion} \times 0.25) + (\text{Practice Frequency} \times 0.10)$$
-  $$\text{Overall Subject Readiness} = \sum_{i=1}^n \left( \frac{\text{Weightage}_i}{\sum \text{Weightage}} \times \text{Readiness Index}_i \right)$$
-- **4-Quadrant Strategic Focus Matrix**:
-  - 🔴 **Quadrant 1: URGENT FOCUS** *(High Weightage + Low Accuracy)* — Critical GPA hazard; triggers real-time alerts.
-  - 🟢 **Quadrant 2: CORE STRENGTH** *(High Weightage + High Accuracy)* — High-yield marks bank; maintain with light revision.
-  - 🟡 **Quadrant 3: REVIEW LATER** *(Low Weightage + Low Accuracy)* — Low ROI initially; tackle after Quadrant 1 is secured.
-  - 🔵 **Quadrant 4: MAINTAIN** *(Low Weightage + High Accuracy)* — Mastered auxiliary concepts.
+---
+
+### 2. ⚡ DSA & Placement Engine (Striver's A2Z Roadmap)
+- **Complete 466-Problem DSA Sheet**:
+  - Full official 18-step curriculum (466 hand-curated questions: 158 Easy, 247 Medium, 61 Hard).
+  - Every single question links directly to its official problem page on LeetCode (`https://leetcode.com/problems/<slug>/`).
+  - Categorized with difficulty badges, problem hints, and top hiring company tags (Google, Amazon, Microsoft, Meta).
+- **LeetCode Profile Live Sync**:
+  - Enter your LeetCode handle to sync real-time problem-solving metrics:
+    - Global Ranking
+    - Total Problems Solved
+    - Difficulty Breakdown (Easy, Medium, Hard)
+  - Seamlessly persists locally with offline fallback.
+- **Dedicated DSA Practice Tracker Rail**:
+  - Replaces academic schedules when focusing on placement prep:
+    - Questions Covered Till Date (`/466`)
+    - Questions Remainder (Remaining problems to clear the sheet)
+    - Real-time progress bars for Easy, Medium, and Hard tiers
+    - Topic-by-topic mini checklist across all 18 DSA steps.
+
+---
+
+### 3. 🖥️ Core Computer Science Technical Hub
+Designed specifically for technical SDE interviews and core academic mastery, featuring clean light-themed interactive visual simulators:
+
+- **CCN (Computer Networks)**:
+  - **TCP 3-Way Handshake & 4-Way FIN Teardown Simulator**: Interactive Client/Server nodes with bidirectional packet tracks, sequence math (`ISN`, `ACK = seq + 1`), and state machines (`LISTEN`, `SYN_SENT`, `SYN_RCVD`, `ESTABLISHED`, `TIME_WAIT`).
+  - **OSI 7-Layer vs TCP/IP 4-Layer Architecture**: Clickable ladder inspector revealing Protocol Data Units (PDUs), addressing schemes, hardware layers, and data encapsulation flow.
+- **OS (Operating Systems)**:
+  - **Process Virtual Memory Architecture**: Interactive 32-bit / 64-bit memory tower showing Stack (grows down ⬇), unmapped virtual gap, Heap (grows up ⬆), BSS, Data, and Text segments.
+  - **Deadlock Resource Allocation Graph (RAG)**: Visual circular wait cycle between processes and resources with the 4 mandatory Coffman conditions.
+- **DBMS & SQL**:
+  - **ACID Transactional Integrity Pillars**: Interactive cards detailing Atomicity (Undo Logs/WAL), Consistency, Isolation (MVCC/Locking), and Durability (Redo Logs).
+  - **SQL Joins Interactive Set Theory Engine**: Live SVG Venn diagrams for `INNER`, `LEFT`, `RIGHT`, and `FULL OUTER` joins with dynamic query syntax.
+- **OOPs (Object-Oriented Programming)**:
+  - Interactive cards for the 4 Foundations: Encapsulation, Abstraction, Inheritance, and Polymorphism.
+
+---
+
+### 4. 🔐 Authentication & Student Profiles
+- Secure student login and registration system with username, email, and password.
+- Profile settings to track Semester, Target GPA, Exam Dates, and study preferences.
+- Clean guest / offline fallback for instant local exploration.
 
 ---
 
 ## 🛠️ Project Directory Structure
 
 ```text
-exam-prep-platform/
+ExamPrep/
 ├── backend/
 │   ├── app/
 │   │   ├── core/
 │   │   │   └── config.py               # Pydantic Settings, CORS, API keys
 │   │   ├── db/
 │   │   │   ├── database.py             # SQLAlchemy session factory & SQLite/PostgreSQL engine
-│   │   │   └── models.py               # Subject, Chapter, PYQ, Question, Quiz, ChapterSummary
+│   │   │   └── models.py               # User, Subject, Chapter, PYQ, Question, Quiz, ChapterSummary
 │   │   ├── schemas/
-│   │   │   └── schemas.py              # Pydantic v2 schemas for request/response validation
+│   │   │   └── schemas.py              # Pydantic schemas for request/response validation
 │   │   ├── services/
-│   │   │   ├── pdf_service.py          # pypdf & pdfplumber text extraction & cleaning
-│   │   │   ├── gemini_service.py       # Official google-genai SDK (Theory, Derivations, Traps)
-│   │   │   ├── openai_service.py       # Official openai SDK (Mnemonics, Formulas, Tables)
-│   │   │   └── analytics_service.py    # Readiness Index & 4-Quadrant Focus Matrix algorithms
+│   │   │   ├── analytics_service.py    # Readiness Index & 4-Quadrant focus matrix
+│   │   │   ├── curriculum_knowledge.py # Pre-seeded curricula & interview banks
+│   │   │   ├── gemini_service.py       # Google GenAI SDK (PYQ Extraction & Conceptual Notes)
+│   │   │   ├── openai_service.py       # OpenAI SDK (Mnemonics, Formulas, Tables)
+│   │   │   └── pdf_service.py          # PDF text extraction
 │   │   ├── routers/
-│   │   │   ├── pyq.py                  # PDF upload, question extraction, question bank search
-│   │   │   ├── quiz.py                 # Quiz generation, interactive submission, history
-│   │   │   ├── notes.py                # Dual-AI parallel generation, MD/PDF export
-│   │   │   └── analytics.py            # Weightage editor, readiness reports, seed & settings
-│   │   └── main.py                     # FastAPI entrypoint, lifespan seeding, CORS
-│   ├── sample_docs/
-│   │   └── Operating_Systems_PYQ_2023.pdf # Sample university PYQ paper for instant testing
-│   ├── requirements.txt                # FastAPI, google-genai, openai, reportlab, etc.
-│   ├── test_e2e.py                     # Automated 9-step end-to-end integration test
-│   └── .env.example                    # Environment template
+│   │   │   ├── auth.py                 # User authentication (Login, Register, Profile)
+│   │   │   ├── analytics.py            # Readiness radar & weightage metrics
+│   │   │   ├── books.py                # Prescribed textbook & slide management
+│   │   │   ├── notes.py                # Dual-AI note generation & PDF/MD exports
+│   │   │   ├── placement.py            # LeetCode profile sync & DSA tracker
+│   │   │   ├── pyq.py                  # PYQ upload and structured question bank
+│   │   │   └── quiz.py                 # Practice quiz generation and evaluation
+│   │   └── main.py                     # FastAPI entrypoint, router inclusions, CORS
+│   ├── uploads/                        # Uploaded textbooks, slides, and exam papers
+│   ├── requirements.txt                # Python dependencies
+│   └── .env.example                    # Environment configuration template
 ├── client/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── Navbar.jsx              # Navigation, subject switcher, live AI badges
-│   │   │   ├── FileUploader.jsx        # Drag-drop PDF upload, structured question bank
-│   │   │   ├── QuizCard.jsx            # 10-Question test engine, timer, confetti, solutions
-│   │   │   ├── SplitNotesViewer.jsx    # Side-by-side Gemini & ChatGPT viewer, sync scroll, exports
-│   │   │   ├── ReadinessChart.jsx      # 4-Quadrant Focus Matrix, index gauge, progress table
-│   │   │   └── SettingsModal.jsx       # Dynamic API key input & subject creation modal
+│   │   │   ├── placement/
+│   │   │   │   ├── AdvancedTopicVisual.jsx # Light-themed interactive CS architectural diagrams
+│   │   │   │   ├── CoreSubjectsTab.jsx     # CCN, OS, DBMS, OOPs, SQL master hub
+│   │   │   │   ├── DsaProgressRail.jsx     # Real-time DSA sheet practice tracker sidebar
+│   │   │   │   └── StriverSheetTab.jsx     # 466-Problem DSA Sheet with direct LeetCode links
+│   │   │   ├── FileUploader.jsx        # Exam paper drag-and-drop uploader
+│   │   │   ├── Navbar.jsx              # Brand header & top navigation
+│   │   │   ├── QuizCard.jsx            # 10-Question test engine with timer & confetti
+│   │   │   ├── ReadinessChart.jsx      # Strategic readiness radar
+│   │   │   ├── RightRail.jsx           # Semester exam countdown & daily schedule
+│   │   │   ├── Sidebar.jsx             # Left navigation with active pill styling
+│   │   │   ├── SidebarTodoList.jsx     # Daily study task checklist
+│   │   │   └── TopHeader.jsx           # Profile modal trigger and status indicators
+│   │   ├── data/
+│   │   │   ├── coreSubjectsData.js     # Comprehensive CS interview topics & Q&As
+│   │   │   └── striverSheetData.js     # Complete 466-question Striver A2Z dataset
 │   │   ├── pages/
-│   │   │   ├── Dashboard.jsx           # Global overview, urgent alerts, quick action cards
-│   │   │   ├── QuizPage.jsx            # Chapter quiz launcher & attempt history
-│   │   │   ├── NotesPage.jsx           # Dual-AI summary hub with parallel generator
-│   │   │   └── SyllabusPage.jsx        # Exam weightage blueprint editor & readiness tracker
+│   │   │   ├── CoursesPage.jsx         # Subject syllabus explorer & module view
+│   │   │   ├── Dashboard.jsx           # Overview, urgent GPA alerts & quick actions
+│   │   │   ├── LoginPage.jsx           # Student login and registration
+│   │   │   ├── NotesPage.jsx           # Dual-AI summary & revision notes hub
+│   │   │   ├── PlacementPage.jsx       # DSA Sheet & Core Subjects hub
+│   │   │   ├── QuizPage.jsx            # Chapter quiz launcher
+│   │   │   ├── ReadinessTrackerPage.jsx# Full readiness analytics
+│   │   │   └── SyllabusPage.jsx        # Syllabus weightage editor
 │   │   ├── services/
 │   │   │   └── api.js                  # Axios client for all backend endpoints
-│   │   ├── App.jsx                     # Root application container & tab router
-│   │   ├── main.jsx                    # Vite entrypoint
-│   │   └── index.css                   # Custom Tailwind directives, glassmorphism, print CSS
-│   ├── index.html                      # HTML5 template with Inter typography
-│   ├── package.json                    # React, Lucide Icons, Tailwind CSS, Axios, Confetti
-│   ├── postcss.config.js
-│   └── tailwind.config.js              # Custom dark cyber-indigo theme palette
-└── README.md
+│   │   ├── App.jsx                     # Root application container & conditional rails
+│   │   ├── main.jsx                    # Vite React entrypoint
+│   │   └── index.css                   # Custom styling, fonts, and print directives
+│   ├── package.json                    # Frontend dependencies
+│   └── vite.config.js                  # Vite configuration
+├── .gitignore                          # Clean repository hygiene (.env, node_modules, venv, db)
+└── README.md                           # Project documentation
 ```
 
 ---
@@ -130,128 +165,90 @@ exam-prep-platform/
 ## ⚡ Quick Start Guide
 
 ### Prerequisites
-- **Python**: 3.11 or 3.12 (`python --version`)
-- **Node.js**: v18+ or v24+ (`node --version`)
+- **Python**: 3.11+
+- **Node.js**: v18+ or v22+
 - **Package Managers**: `pip` and `npm`
 
 ---
 
-### Step 1: Run the FastAPI Backend
+### Step 1: Run the Backend (FastAPI)
 
-1. Navigate to the `backend/` directory:
+1. Open a terminal and navigate to `backend/`:
    ```bash
    cd backend
    ```
-2. Activate the virtual environment:
-   - On Windows (PowerShell):
+2. Activate your Python virtual environment:
+   - **Windows (PowerShell)**:
      ```powershell
      .\venv\Scripts\Activate.ps1
      ```
-   - On macOS/Linux:
+   - **macOS / Linux**:
      ```bash
      source venv/bin/activate
      ```
-3. (Optional) Configure API keys in `.env` or set them later via the frontend Settings UI:
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. *(Optional)* Set API keys in `backend/.env` (or configure via the frontend UI):
    ```env
    GEMINI_API_KEY="your-google-ai-studio-key"
-   OPENAI_API_KEY="your-openai-key"
+   OPENAI_API_KEY="your-openai-api-key"
    ```
-   > **Note:** Even without API keys set initially, ExamPrepAI includes high-quality academic fallback generators for university engineering curricula, ensuring 100% of the UI, quiz scoring, and PDF generation work immediately out-of-the-box!
-4. Launch the FastAPI server:
+   > **Note:** The platform includes comprehensive academic fallback generators, ensuring that all 466 DSA questions, quizzes, and diagrams work out-of-the-box even without external API keys.
+5. Start the FastAPI server:
    ```bash
    uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
    ```
-5. Verify backend health:
-   - API Docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-   - Health Check: [http://127.0.0.1:8000/api/health](http://127.0.0.1:8000/api/health)
+6. Backend Health Check: [http://127.0.0.1:8000/api/health](http://127.0.0.1:8000/api/health)  
+   Interactive Swagger API Docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
 ---
 
-### Step 2: Run the Vite React Frontend
+### Step 2: Run the Frontend (Vite + React)
 
-1. In a separate terminal, navigate to the `client/` directory:
+1. Open a second terminal and navigate to `client/`:
    ```bash
    cd client
    ```
-2. Start the Vite development server:
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Launch the Vite development server:
    ```bash
    npm run dev
    ```
-3. Open your browser and navigate to:
+4. Open your browser and navigate to:
    ```text
-   http://127.0.0.1:5173/
+   http://localhost:5173/
    ```
 
 ---
 
-### Step 3: Run the Automated Integration Tests
+## 💡 Technologies & Computer Science Principles Used
 
-A comprehensive 9-phase end-to-end integration test is provided in `backend/test_e2e.py`. It tests:
-1. Health check & database connection
-2. Subject retrieval & auto-seeded curriculum
-3. PDF upload and text extraction using the sample PYQ paper
-4. 10-Question practice quiz generation
-5. Quiz submission, answer validation, and score calculation
-6. Parallel Dual-AI notes generation (Gemini + OpenAI)
-7. Markdown export (`.md`)
-8. PDF document generation (`%PDF` binary stream)
-9. 4-Quadrant Focus Matrix recalculation
-
-To run the test:
-```powershell
-cd backend
-.\venv\Scripts\python test_e2e.py
-```
-
-Expected output:
-```text
-=== 1. Testing Health Endpoint ===
-Health: {'status': 'healthy', 'service': 'ExamPrepAI', 'database': 'connected', ...}
-=== 2. Testing Subjects List ===
-Found 2 subjects. First subject: Operating Systems
-=== 3. Testing PYQ Upload with Sample PDF ===
-Uploaded PYQ successfully! Extracted 10 questions from PDF.
-=== 4. Testing Daily Practice Quiz Generation (10 Questions) ===
-Quiz generated: '1. Introduction, System Calls & OS Structures - Practice Quiz' with 10 questions.
-=== 5. Testing Quiz Submission & Instant Scoring ===
-Quiz Scored: 8.0/10.0 (80.0%)
-=== 6. Testing Dual-AI 1-Page Summary Revision Notes ===
-Dual Notes Generated for '1. Introduction, System Calls & OS Structures':
-- Gemini Summary Length: 2547 chars
-- OpenAI Summary Length: 3050 chars
-=== 7. Testing Markdown & PDF Export Endpoints ===
-Markdown exported successfully (6078 bytes).
-PDF exported successfully (3625 bytes). Header: b'%PDF-'
-=== 8. Testing Strategic Exam Readiness Report & 4-Quadrant Focus Matrix ===
-Overall Readiness Index: 28.7%
-Urgent Topics Count: 3
-=== 9. Testing Weightage Distribution Update ===
-Weightage updated. Overall Readiness: 32.8
-
->>> ALL 9 END-TO-END PIPELINE CHECKS PASSED WITH 100% SUCCESS! <<<
-```
+- **Artificial Intelligence**:
+  - **LLMs**: Google Gemini 2.5/1.5 Flash (`google-genai`) & OpenAI GPT-4o (`openai`).
+  - **RAG (Retrieval-Augmented Generation)**: In-memory keyword relevance scoring over university textbook PDFs and PPT lecture slides.
+- **Frontend Architecture**:
+  - React 19, Vite, Tailwind CSS, Lucide Icons, Recharts, KaTeX LaTeX formula rendering.
+  - Custom Event-Driven Architecture (`examprep_dsa_solved_changed`) and `localStorage` synchronization.
+- **Backend Architecture**:
+  - FastAPI (ASGI non-blocking async architecture), Uvicorn.
+  - SQLAlchemy 2.0 ORM with SQLite / PostgreSQL support.
+  - Pydantic v2 data validation and schemas.
+  - JWT Stateless Authentication & bcrypt password hashing.
+- **Algorithms & Systems**:
+  - Full Striver A2Z 18-step DSA curriculum (Binary Search, Graphs, Trees, DP, Backtracking).
+  - Complete core CS curriculum (Operating Systems, Networking, DBMS, OOPs, SQL).
 
 ---
 
-## 💡 AI Integrations Details
-
-### Google GenAI SDK (`google-genai`)
-- Official SDK: `from google import genai`
-- Models: `gemini-2.5-flash` / `gemini-1.5-flash`
-- Applied for:
-  - Unstructured PDF question categorization
-  - Mathematical derivations & theorem formulations
-  - Common exam traps and professor grading caveats
-
-### OpenAI SDK (`openai`)
-- Official SDK: `from openai import OpenAI`
-- Models: `gpt-4o-mini` / `gpt-4o`
-- Applied for:
-  - Memory mnemonics & cognitive recall hooks
-  - Formula cheat sheets & unit tables
-  - Side-by-side comparison tables
+## 🔗 Repository
+- **GitHub**: [https://github.com/adeshsavaratkar21/ExamPerpAI](https://github.com/adeshsavaratkar21/ExamPerpAI)
 
 ---
 
 ## 📄 License
-MIT License. Built for university students and educators using Google Antigravity.
+MIT License. Built for university students and engineers preparing for exams and technical placements.
