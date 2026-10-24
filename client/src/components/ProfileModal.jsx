@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { X, Camera, Upload, Check, User, Mail, GraduationCap, Image as ImageIcon } from 'lucide-react';
+import { X, Camera, Upload, Check, User, Mail, GraduationCap, Image as ImageIcon, LogOut } from 'lucide-react';
 
 const PRESET_AVATARS = [
   {
@@ -32,7 +32,8 @@ export default function ProfileModal({
   isOpen,
   onClose,
   currentProfile,
-  onSaveProfile
+  onSaveProfile,
+  onLogout
 }) {
   if (!isOpen) return null;
 
@@ -300,27 +301,43 @@ export default function ProfileModal({
           </div>
 
           {/* Modal Actions */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-5 py-2.5 rounded-2xl border border-gray-200 text-gray-600 font-bold text-xs hover:bg-gray-50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-6 py-2.5 rounded-2xl bg-gray-950 text-white font-extrabold text-xs hover:bg-gray-800 transition-all shadow-sm flex items-center gap-2"
-            >
-              {savedSuccess ? (
-                <>
-                  <Check className="w-4 h-4 text-emerald-400" />
-                  Saved!
-                </>
-              ) : (
-                'Save Changes'
-              )}
-            </button>
+          <div className="flex items-center justify-between gap-3 pt-4 border-t border-gray-100">
+            {onLogout ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onLogout();
+                }}
+                className="px-4 py-2.5 rounded-2xl border border-rose-200 text-rose-600 hover:bg-rose-50 font-bold text-xs transition-colors flex items-center gap-1.5"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Log Out</span>
+              </button>
+            ) : <div />}
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-5 py-2.5 rounded-2xl border border-gray-200 text-gray-600 font-bold text-xs hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-6 py-2.5 rounded-2xl bg-gray-950 text-white font-extrabold text-xs hover:bg-gray-800 transition-all shadow-sm flex items-center gap-2"
+              >
+                {savedSuccess ? (
+                  <>
+                    <Check className="w-4 h-4 text-emerald-400" />
+                    Saved!
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
+              </button>
+            </div>
           </div>
         </form>
       </div>

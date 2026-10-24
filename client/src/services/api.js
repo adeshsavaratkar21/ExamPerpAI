@@ -64,6 +64,16 @@ export const api = {
     }),
   deleteBook: (subjectCode, filename) =>
     client.delete('/books/delete', { params: { subject_code: subjectCode, filename } }),
+
+  // User Authentication
+  login: (data) => client.post('/auth/login', data),
+  register: (data) => client.post('/auth/register', data),
+  getCurrentUser: () => client.get('/auth/me'),
+
+  // DSA & Campus Placement Mode
+  getLeetCodeProfile: (username) => client.get(`/placement/leetcode/${username}`),
+  getPlacementRoadmap: (params) => client.get('/placement/roadmap', { params }),
+  getPlacementDriveStats: () => client.get('/placement/placement-drive-stats'),
 };
 
 export default api;

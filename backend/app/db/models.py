@@ -156,3 +156,15 @@ class ReadinessMetric(Base):
     updated_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     chapter = relationship("Chapter", back_populates="readiness_metric")
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(100), unique=True, index=True, nullable=False)
+    email = Column(String(255), unique=True, index=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    program = Column(String(200), default="Semester 5 • Computer Engineering (SPIT)")
+    avatar = Column(String(500), default="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80")
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)

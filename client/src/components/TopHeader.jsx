@@ -1,11 +1,12 @@
 import React from 'react';
-import { Search, Bell, Settings } from 'lucide-react';
+import { Search, Bell, Settings, LogOut } from 'lucide-react';
 
 export default function TopHeader({ 
   studentName = "Melissa",
   studentProfile,
   onOpenSettings,
   onOpenProfile,
+  onLogout,
   searchQuery,
   setSearchQuery
 }) {
@@ -71,6 +72,17 @@ export default function TopHeader({
                   e.currentTarget.src = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80";
                 }}
               />
+            </button>
+          )}
+
+          {/* Log Out button */}
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              title="Sign Out"
+              className="w-10 h-10 rounded-2xl bg-white border border-gray-200/90 flex items-center justify-center text-gray-400 hover:text-rose-600 shadow-sm hover:bg-rose-50 transition-colors shrink-0"
+            >
+              <LogOut className="w-4 h-4" />
             </button>
           )}
         </div>

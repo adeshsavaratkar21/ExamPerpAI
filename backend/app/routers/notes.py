@@ -364,12 +364,7 @@ async def generate_revision_sheet(
     if not chapter:
         raise HTTPException(status_code=404, detail="Chapter not found")
 
-    if not chapter.is_completed and not payload.force_regenerate:
-        raise HTTPException(
-            status_code=403,
-            detail="Complete the Concept Tutor module first to unlock the revision sheet."
-        )
-
+    # No lock — students can view and generate cheatsheets anytime
     subject = db.query(models.Subject).filter(models.Subject.id == payload.subject_id).first()
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
@@ -382,7 +377,7 @@ async def generate_revision_sheet(
     if summary and not payload.force_regenerate:
         try:
             existing_sheet = json.loads(summary.openai_summary_md or "{}")
-            if isinstance(existing_sheet, dict) and "summary_md" in existing_sheet:
+            if isinstance(existing_sheet, dict) and "summary_md" in existing_sheet and len(existing_sheet.get("summary_md", "")) > 100:
                 return get_revision_sheet(chapter.id, db)
         except Exception:
             pass
@@ -405,6 +400,13 @@ async def generate_revision_sheet(
         except Exception:
             pass
 
+    # Extract book context if any
+    book_context = extract_book_context_for_chapter(
+        subject_code=subject.code or "",
+        chapter_name=chapter.name,
+        topics_str=chapter.topics or ""
+    )
+
     loop = asyncio.get_event_loop()
     with ThreadPoolExecutor(max_workers=1) as executor:
         sheet_result = await loop.run_in_executor(
@@ -414,7 +416,10 @@ async def generate_revision_sheet(
             subject.name,
             pyq_snippets,
             existing_pitfalls,
-            existing_formulas
+            existing_formulas,
+            chapter.topics,
+            chapter.unit_number,
+            book_context
         )
 
     sheet_json = json.dumps(sheet_result)

@@ -10,9 +10,22 @@ import NotesPage from './pages/NotesPage';
 import SyllabusPage from './pages/SyllabusPage';
 import SettingsModal from './components/SettingsModal';
 import ProfileModal from './components/ProfileModal';
+import LoginPage from './pages/LoginPage';
+import PlacementPage from './pages/PlacementPage';
+import DsaProgressRail from './components/placement/DsaProgressRail';
 import api from './services/api';
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('examprep_auth_user') || sessionStorage.getItem('examprep_auth_user');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error('Failed to load auth user:', e);
+    }
+    return null;
+  });
+
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [subjects, setSubjects] = useState([]);
   const [selectedSubjectId, setSelectedSubjectId] = useState(null);
@@ -82,6 +95,33 @@ export default function App() {
     loadInitialData();
   }, []);
 
+  const handleLoginSuccess = (user, rememberMe = true) => {
+    setCurrentUser(user);
+    if (rememberMe) {
+      localStorage.setItem('examprep_auth_user', JSON.stringify(user));
+    } else {
+      sessionStorage.setItem('examprep_auth_user', JSON.stringify(user));
+    }
+
+    const updatedProfile = {
+      ...studentProfile,
+      name: user.username || studentProfile.name,
+      email: user.email || studentProfile.email,
+      program: user.program || studentProfile.program,
+      avatar: user.avatar || studentProfile.avatar
+    };
+    setStudentProfile(updatedProfile);
+    localStorage.setItem('examprep_student_profile', JSON.stringify(updatedProfile));
+
+    loadInitialData();
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('examprep_auth_user');
+    sessionStorage.removeItem('examprep_auth_user');
+    setCurrentUser(null);
+  };
+
   const handleLaunchQuizForChapter = (chapterId) => {
     setActiveChapterForQuiz(chapterId);
     setCurrentTab('quiz');
@@ -94,6 +134,11 @@ export default function App() {
 
   const currentSubject = subjects.find(s => s.id === Number(selectedSubjectId)) || subjects[0];
 
+  // If user is not authenticated, display the dedicated Login Page
+  if (!currentUser) {
+    return <LoginPage onLogin={handleLoginSuccess} />;
+  }
+
   return (
     <div className="h-screen w-screen overflow-hidden bg-[#F8F9FD] flex flex-row text-gray-900 font-sans">
       {/* 1. Left Sidebar Navigation & Study To-Do List */}
@@ -105,6 +150,7 @@ export default function App() {
         onOpenHelp={() => setCurrentTab('notes')}
         studentProfile={studentProfile}
         onOpenProfile={() => setIsProfileOpen(true)}
+        onLogout={handleLogout}
       />
 
       {/* 2. Center Main View Area (Full Desktop Workspace) */}
@@ -118,6 +164,7 @@ export default function App() {
             setSelectedSubjectId={setSelectedSubjectId}
             onOpenSettings={() => setIsSettingsOpen(true)}
             onOpenProfile={() => setIsProfileOpen(true)}
+            onLogout={handleLogout}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
           />
@@ -184,24 +231,37 @@ export default function App() {
                 refreshSubjects={loadInitialData}
               />
             )}
+
+            {currentTab === 'placement' && (
+              <PlacementPage
+                studentProfile={studentProfile}
+              />
+            )}
           </main>
         </div>
 
-        {/* 3. Right Rail (Profile, Mini Calendar, Schedule & Reminders) */}
+        {/* 3. Right Rail: DSA Practice Tracker when on placement tab, Academic Schedule otherwise */}
         <div className="hidden xl:block">
-          <RightRail
-            currentSubject={currentSubject}
-            subjects={subjects}
-            selectedSubjectId={selectedSubjectId}
-            onSelectSubject={(id) => {
-              setSelectedSubjectId(id);
-            }}
-            studentProfile={studentProfile}
-            onOpenEditProfile={() => setIsProfileOpen(true)}
-            onNavigateToQuiz={handleLaunchQuizForChapter}
-            onNavigateToNotes={handleViewNotesForChapter}
-            onNavigateTab={setCurrentTab}
-          />
+          {currentTab === 'placement' ? (
+            <DsaProgressRail
+              studentProfile={studentProfile}
+              onNavigateTab={setCurrentTab}
+            />
+          ) : (
+            <RightRail
+              currentSubject={currentSubject}
+              subjects={subjects}
+              selectedSubjectId={selectedSubjectId}
+              onSelectSubject={(id) => {
+                setSelectedSubjectId(id);
+              }}
+              studentProfile={studentProfile}
+              onOpenEditProfile={() => setIsProfileOpen(true)}
+              onNavigateToQuiz={handleLaunchQuizForChapter}
+              onNavigateToNotes={handleViewNotesForChapter}
+              onNavigateTab={setCurrentTab}
+            />
+          )}
         </div>
 
       {/* Settings Modal */}
@@ -223,6 +283,7 @@ export default function App() {
         onClose={() => setIsProfileOpen(false)}
         currentProfile={studentProfile}
         onSaveProfile={handleSaveProfile}
+        onLogout={handleLogout}
       />
     </div>
   );

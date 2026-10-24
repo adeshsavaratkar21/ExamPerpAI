@@ -15,7 +15,8 @@ import {
   BookOpen,
   Award,
   Layers,
-  ChevronRight
+  ChevronRight,
+  Briefcase
 } from 'lucide-react';
 import api from '../services/api';
 
@@ -127,7 +128,14 @@ export default function Dashboard({
                 className="px-4 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 font-bold text-xs hover:bg-gray-50 shadow-2xs transition-all flex items-center gap-1.5"
               >
                 <Target className="w-3.5 h-3.5 text-indigo-600" />
-                Readiness Focus Matrix
+                Readiness Matrix
+              </button>
+              <button
+                onClick={() => onNavigateTab('placement')}
+                className="px-4 py-2 rounded-xl bg-amber-300 hover:bg-amber-400 text-gray-950 font-black text-xs shadow-2xs transition-all flex items-center gap-1.5"
+              >
+                <Briefcase className="w-3.5 h-3.5 text-gray-950" />
+                DSA & Placement Mode 🚀
               </button>
             </div>
           </div>

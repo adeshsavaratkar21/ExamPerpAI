@@ -280,3 +280,37 @@ class TutorChatRequest(BaseModel):
 class TutorChatResponse(BaseModel):
     reply: str
     suggested_questions: Optional[List[str]] = []
+
+
+# ---------------- USER AUTH SCHEMAS ---------------- #
+class UserRegisterRequest(BaseModel):
+    username: str
+    email: str
+    password: str
+    program: Optional[str] = "Semester 5 • Computer Engineering (SPIT)"
+    avatar: Optional[str] = None
+
+
+class UserLoginRequest(BaseModel):
+    username: str
+    email: str
+    password: str
+
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    email: str
+    program: Optional[str] = None
+    avatar: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AuthResponse(BaseModel):
+    success: bool
+    message: str
+    user: UserResponse
+    token: Optional[str] = None

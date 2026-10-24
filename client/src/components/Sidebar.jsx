@@ -7,7 +7,9 @@ import {
   Target, 
   BookOpen, 
   Settings, 
-  Edit3
+  Edit3,
+  LogOut,
+  Briefcase
 } from 'lucide-react';
 import SidebarTodoList from './SidebarTodoList';
 
@@ -18,11 +20,13 @@ export default function Sidebar({
   onOpenSettings,
   onOpenHelp,
   studentProfile,
-  onOpenProfile
+  onOpenProfile,
+  onLogout
 }) {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'courses', label: 'My Courses', icon: FolderGit2 },
+    { id: 'placement', label: 'DSA & Placement', icon: Briefcase, badge: 'NEW' },
     { id: 'quiz', label: 'Daily Quiz', icon: HelpCircle, badge: urgentCount > 0 ? urgentCount : null },
     { id: 'notes', label: 'Notes', icon: FileText },
     { id: 'readiness', label: 'Readiness Tracker', icon: Target },
@@ -69,7 +73,11 @@ export default function Sidebar({
                 </div>
 
                 {item.badge && (
-                  <span className="w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center">
+                  <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black flex items-center justify-center ${
+                    typeof item.badge === 'string'
+                      ? 'bg-amber-400 text-gray-950 shadow-2xs'
+                      : 'w-4 h-4 bg-rose-500 text-white text-[10px]'
+                  }`}>
                     {item.badge}
                   </span>
                 )}
@@ -121,14 +129,26 @@ export default function Sidebar({
           </div>
         </button>
 
-        {/* Settings Button Placed BELOW Profile (per user drawing) */}
-        <button
-          onClick={onOpenSettings}
-          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-gray-600 hover:text-gray-950 hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-200"
-        >
-          <Settings className="w-4 h-4 text-gray-500" />
-          <span>Settings</span>
-        </button>
+        {/* Settings & Logout Container Placed BELOW Profile */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={onOpenSettings}
+            className="flex-1 flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-gray-600 hover:text-gray-950 hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-200"
+          >
+            <Settings className="w-4 h-4 text-gray-500" />
+            <span>Settings</span>
+          </button>
+
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              title="Log Out / Switch Account"
+              className="p-2 rounded-xl text-xs font-bold text-gray-500 hover:text-rose-600 hover:bg-rose-50 transition-colors border border-transparent hover:border-rose-200 shrink-0"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
     </aside>
   );
