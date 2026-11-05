@@ -39,14 +39,14 @@ export default function Sidebar({
         {/* Brand Logo */}
         <div 
           onClick={() => setCurrentTab('dashboard')}
-          className="flex items-center gap-3 cursor-pointer mb-6 px-2 group shrink-0"
+          className="flex items-center gap-3.5 cursor-pointer mt-3 mb-7 px-3 py-1.5 rounded-2xl hover:bg-gray-50/80 transition-all group shrink-0"
         >
-          <div className="w-9 h-9 rounded-xl bg-accentYellow flex items-center justify-center font-black text-gray-950 text-lg shadow-sm group-hover:scale-105 transition-transform">
+          <div className="w-10 h-10 rounded-2xl bg-accentYellow flex items-center justify-center font-black text-gray-950 text-xl shadow-xs group-hover:scale-105 transition-transform shrink-0">
             ⚡
           </div>
-          <div>
-            <span className="font-extrabold text-sm tracking-tight text-gray-900 block leading-tight">
-              EXAMPREP<br /><span className="text-gray-950">AI</span>
+          <div className="flex flex-col justify-center min-w-0">
+            <span className="font-extrabold text-base tracking-tight text-gray-900 leading-tight">
+              ExamPrepAi
             </span>
           </div>
         </div>

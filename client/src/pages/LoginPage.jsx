@@ -161,8 +161,8 @@ export default function LoginPage({ onLogin }) {
                   ⚡
                 </div>
                 <div>
-                  <span className="font-black text-base tracking-tight text-gray-900 block leading-tight">
-                    EXAMPREP<span className="text-amber-500 font-extrabold ml-1">AI</span>
+                  <span className="font-extrabold text-lg tracking-tight text-gray-900 block leading-tight">
+                    ExamPrepAi
                   </span>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
                     Smart Study Suite
