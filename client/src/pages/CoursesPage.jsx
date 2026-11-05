@@ -28,13 +28,20 @@ export default function CoursesPage({
   onViewNotesForChapter,
   onNavigateTab
 }) {
-  const [activeFolderId, setActiveFolderId] = useState(null);
+  const [activeFolderId, setActiveFolderId] = useState(selectedSubjectId || (subjects.length > 0 ? subjects[0].id : null));
   const [isPYQModalOpen, setIsPYQModalOpen] = useState(false);
   const [isBooksModalOpen, setIsBooksModalOpen] = useState(false);
   const [courseFilter, setCourseFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [subjectDetail, setSubjectDetail] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+
+  // Sync active folder when selectedSubjectId changes from external navigation
+  useEffect(() => {
+    if (selectedSubjectId && activeFolderId !== selectedSubjectId) {
+      setActiveFolderId(selectedSubjectId);
+    }
+  }, [selectedSubjectId]);
 
   // Map custom metadata for subjects
   const subjectMeta = {

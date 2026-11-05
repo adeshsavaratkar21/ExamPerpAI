@@ -19,6 +19,7 @@ import {
 import api from '../services/api';
 import StriverSheetTab from '../components/placement/StriverSheetTab';
 import CoreSubjectsTab from '../components/placement/CoreSubjectsTab';
+import LeetCodeAllTab from '../components/placement/LeetCodeAllTab';
 
 const RECRUITERS = [
   { name: "Morgan Stanley", ctc: "25.5 LPA", role: "Technology Analyst", focus: "120+ DSA (Trees/Graphs) • DBMS • OS Deadlocks" },
@@ -30,8 +31,8 @@ const RECRUITERS = [
 ];
 
 export default function PlacementPage({ studentProfile }) {
-  // Navigation tabs: 'striver' | 'core_cs' | 'companies'
-  const [activeMainTab, setActiveMainTab] = useState('striver');
+  // Navigation tabs: 'all_leetcode' | 'striver' | 'core_cs' | 'companies'
+  const [activeMainTab, setActiveMainTab] = useState('all_leetcode');
 
   // LeetCode Profile Linking State
   const [leetcodeUsername, setLeetcodeUsername] = useState(() => {
@@ -53,7 +54,18 @@ export default function PlacementPage({ studentProfile }) {
   const [isLinking, setIsLinking] = useState(false);
   const [selectedHintProblem, setSelectedHintProblem] = useState(null);
 
-  // Solved Tracker State (saved across DSA Sheet and Roadmap)
+  // LeetCode Solved Question IDs (from 4,095 catalog)
+  const [leetcodeSolvedIds, setLeetcodeSolvedIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('examprep_leetcode_all_solved');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return [1, 2, 3, 20, 21, 53, 70, 121, 141, 206, 226];
+  });
+
+  // Striver Solved Tracker State
   const [solvedIds, setSolvedIds] = useState(() => {
     try {
       const saved = localStorage.getItem('examprep_striver_solved');
@@ -112,6 +124,21 @@ export default function PlacementPage({ studentProfile }) {
     if (leetcodeUsername && !leetcodeData) {
       fetchLeetcodeProfile(leetcodeUsername);
     }
+
+    const handleSync = () => {
+      try {
+        const savedLC = localStorage.getItem('examprep_leetcode_all_solved');
+        if (savedLC) setLeetcodeSolvedIds(JSON.parse(savedLC));
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    window.addEventListener('examprep_dsa_solved_changed', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener('examprep_dsa_solved_changed', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
   }, []);
 
   const handleLinkSubmit = (e) => {
@@ -139,12 +166,11 @@ export default function PlacementPage({ studentProfile }) {
     });
   };
 
-  // Readiness Calculation
-  const totalSheetCount = 466;
-  const dsaSolved = leetcodeData?.total_solved || solvedIds.length;
-  const targetProblems = 450;
-  const dsaPercent = Math.min(Math.round((dsaSolved / targetProblems) * 100), 100);
-  const readinessIndex = Math.min(Math.round((dsaPercent * 0.7) + ((solvedIds.length / totalSheetCount) * 30)), 99);
+  // Readiness Calculation (driven by LeetCode 4,095 catalog)
+  const totalLeetCodeSolved = Math.max(leetcodeSolvedIds.length, leetcodeData?.total_solved || 0);
+  const targetProblems = 150;
+  const dsaPercent = Math.min(Math.round((totalLeetCodeSolved / targetProblems) * 100), 100);
+  const readinessIndex = Math.min(Math.round((dsaPercent * 0.85) + (totalLeetCodeSolved > 0 ? 15 : 0)), 99);
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
@@ -201,29 +227,41 @@ export default function PlacementPage({ studentProfile }) {
                 {readinessIndex >= 75 ? '🔥 Interview Ready' : '📈 Good Progress'}
               </p>
               <p className="text-[10px] text-gray-400 font-medium mt-0.5">
-                {solvedIds.length} DSA Problems Tracked
+                {totalLeetCodeSolved} LeetCode Problems Tracked
               </p>
             </div>
           </div>
         </div>
 
-        {/* 3 Main Mode Selectors: DSA Sheet vs Core Subjects vs Companies */}
+        {/* 4 Main Mode Selectors: LeetCode vs AtoZ Sheet vs Core Subjects vs Companies */}
         <div className="flex items-center gap-2 mt-6 pt-6 border-t border-white/10 overflow-x-auto">
           <button
+            onClick={() => setActiveMainTab('all_leetcode')}
+            className={`px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 ${
+              activeMainTab === 'all_leetcode'
+                ? 'bg-amber-300 text-gray-950 shadow-md scale-102'
+                : 'text-gray-300 hover:text-white hover:bg-white/10'
+            }`}
+          >
+            <Sparkles className="w-4 h-4 text-amber-500" />
+            <span>LeetCode</span>
+          </button>
+
+          <button
             onClick={() => setActiveMainTab('striver')}
-            className={`px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all ${
+            className={`px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 ${
               activeMainTab === 'striver'
                 ? 'bg-amber-300 text-gray-950 shadow-md scale-102'
                 : 'text-gray-300 hover:text-white hover:bg-white/10'
             }`}
           >
             <Code2 className="w-4 h-4" />
-            <span>DSA Sheet</span>
+            <span>AtoZ Sheet</span>
           </button>
           
           <button
             onClick={() => setActiveMainTab('core_cs')}
-            className={`px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all ${
+            className={`px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 ${
               activeMainTab === 'core_cs'
                 ? 'bg-amber-300 text-gray-950 shadow-md scale-102'
                 : 'text-gray-300 hover:text-white hover:bg-white/10'
@@ -499,7 +537,14 @@ export default function PlacementPage({ studentProfile }) {
         />
       )}
 
-      {/* TAB B: CORE CS SUBJECTS (CCN, OS, DBMS, OOPS, SQL) */}
+      {/* TAB B: ALL 4,095 LEETCODE QUESTIONS LIBRARY */}
+      {activeMainTab === 'all_leetcode' && (
+        <LeetCodeAllTab
+          onSelectHint={setSelectedHintProblem}
+        />
+      )}
+
+      {/* TAB C: CORE CS SUBJECTS (CCN, OS, DBMS, OOPS, SQL) */}
       {activeMainTab === 'core_cs' && (
         <CoreSubjectsTab />
       )}

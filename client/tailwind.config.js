@@ -33,6 +33,9 @@ export default {
       },
       fontFamily: {
         sans: ['Plus Jakarta Sans', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        kalam: ['Kalam', 'cursive'],
+        caveat: ['Caveat', 'cursive'],
+        handwriting: ['Caveat', 'Kalam', 'cursive'],
       },
       boxShadow: {
         'soft-sm': '0 2px 8px rgba(0, 0, 0, 0.04)',

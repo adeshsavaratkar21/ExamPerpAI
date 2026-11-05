@@ -342,91 +342,13 @@ def seed_demo_data(db: Session = Depends(get_db)):
     if existing:
         return {"message": "Database already contains subjects.", "subject_id": existing.id}
 
-    # Subjects to seed: DC, SE, AISC, TOC, CNS, MDM
-    from seed_curriculum import subjects_data
-    for s_info in subjects_data:
-        sub = models.Subject(
-            name=s_info["name"],
-            code=s_info["code"],
-            target_exam=s_info["target_exam"],
-            total_marks=s_info["total_marks"],
-            created_at=datetime.datetime.utcnow()
-        )
-        db.add(sub)
-        db.flush()
-
-        ch_map = {}
-        created_chs = []
-        for idx, c_info in enumerate(s_info["chapters"]):
-            ch = models.Chapter(
-                subject_id=sub.id,
-                name=c_info["name"],
-                order=idx + 1,
-                weightage_marks=c_info["marks"],
-                weightage_percent=c_info["pct"],
-                is_completed=c_info["comp"],
-                completed_at=datetime.datetime.utcnow() if c_info["comp"] else None
-            )
-            db.add(ch)
-            db.flush()
-            ch_map[c_info["name"]] = ch.id
-            created_chs.append(ch)
-
-        for ch_name, q_text, q_type, marks, diff in s_info.get("pyqs", []):
-            target_ch_id = ch_map.get(ch_name, created_chs[0].id)
-            q = models.Question(
-                subject_id=sub.id,
-                chapter_id=target_ch_id,
-                text=q_text,
-                question_type=q_type,
-                marks=marks,
-                difficulty=diff,
-                exam_year="2023",
-                source_paper=f"{s_info['code']} End-Sem Exam",
-                tags=json.dumps([s_info["code"].lower(), q_type.lower()])
-            )
-            db.add(q)
-
-        # Pre-seed quiz for Chapter 1
-        ch1 = created_chs[0]
-        quiz = models.Quiz(
-            subject_id=sub.id,
-            chapter_id=ch1.id,
-            title=f"{ch1.name} — Practice Quiz #1",
-            mode="Standard",
-            score=8.5,
-            total_marks=10.0,
-            accuracy_percent=85.0,
-            is_completed=True,
-            created_at=datetime.datetime.utcnow(),
-            completed_at=datetime.datetime.utcnow()
-        )
-        db.add(quiz)
-        db.flush()
-
-        # Pre-seed Dual-AI Notes for Chapter 1
-        from app.services.gemini_service import gemini_service
-        from app.services.openai_service import openai_service
-
-        gemini_summary = gemini_service._fallback_gemini_summary(ch1.name, sub.name)
-        openai_summary = openai_service._fallback_openai_summary(ch1.name, sub.name)
-
-        summary = models.ChapterSummary(
-            chapter_id=ch1.id,
-            subject_id=sub.id,
-            gemini_summary_md=gemini_summary["summary_md"],
-            openai_summary_md=openai_summary["summary_md"],
-            key_formulas=json.dumps(gemini_summary["formulas"] + openai_summary["formulas"]),
-            pitfalls=json.dumps(gemini_summary["pitfalls"]),
-            mnemonics=json.dumps(openai_summary["mnemonics"]),
-            generated_at=datetime.datetime.utcnow(),
-            updated_at=datetime.datetime.utcnow()
-        )
-        db.add(summary)
-
-        for c in created_chs:
-            analytics_service.calculate_chapter_metrics(db, c.id)
-
-    db.commit()
+    # Seed full curriculum schemes from seed_curriculum module
+    from seed_curriculum import seed_database
+    seed_database(db)
+    first_sub = db.query(models.Subject).first()
+    return {
+        "message": "Curriculum and subject schemes seeded successfully.",
+        "subject_id": first_sub.id if first_sub else None
+    }
     first_sub = db.query(models.Subject).first()
     return {"message": "Demo subjects DC, SE, AISC, TOC, CNS, MDM successfully seeded!", "subject_id": first_sub.id if first_sub else None}

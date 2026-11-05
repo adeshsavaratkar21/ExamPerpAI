@@ -26,8 +26,8 @@ export default function Sidebar({
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'courses', label: 'My Courses', icon: FolderGit2 },
-    { id: 'placement', label: 'DSA & Placement', icon: Briefcase, badge: 'NEW' },
-    { id: 'quiz', label: 'Daily Quiz', icon: HelpCircle, badge: urgentCount > 0 ? urgentCount : null },
+    { id: 'placement', label: 'DSA & Placement', icon: Briefcase },
+    { id: 'quiz', label: 'Daily Quiz', icon: HelpCircle, badge: urgentCount > 0 ? `${urgentCount}` : null },
     { id: 'notes', label: 'Notes', icon: FileText },
     { id: 'readiness', label: 'Readiness Tracker', icon: Target },
     { id: 'pyq', label: 'PYQ Papers', icon: BookOpen },

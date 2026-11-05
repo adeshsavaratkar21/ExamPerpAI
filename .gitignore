@@ -37,3 +37,7 @@ Thumbs.db
 *.sqlite
 *.sqlite3
 
+# Uploaded Files
+uploads/
+backend/uploads/
+

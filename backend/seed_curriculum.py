@@ -6,27 +6,12 @@ from app.db.database import SessionLocal, Base, engine
 from app.db import models
 from app.services.analytics_service import analytics_service
 from app.services.gemini_service import gemini_service
-from app.services.openai_service import openai_service
 from app.core.config import settings
 
-# Ensure tables exist
-Base.metadata.create_all(bind=engine)
+def get_utc_now():
+    return datetime.datetime.now(datetime.timezone.utc)
 
-db = SessionLocal()
-
-try:
-    # Remove old subjects or clear cleanly
-    db.query(models.QuizQuestion).delete()
-    db.query(models.Quiz).delete()
-    db.query(models.ChapterSummary).delete()
-    db.query(models.ReadinessMetric).delete()
-    db.query(models.Question).delete()
-    db.query(models.PYQDocument).delete()
-    db.query(models.Chapter).delete()
-    db.query(models.Subject).delete()
-    db.commit()
-
-    subjects_data = [
+subjects_data = [
         {
             "code": "DC",
             "name": "Distributed Computing",
@@ -666,139 +651,177 @@ try:
         }
     ]
 
-    for s_info in subjects_data:
-        target_exam = s_info.get("target_exam") or "Semester 5 University Endsem"
-        total_marks = float(s_info.get("total_marks") or s_info.get("exam_scheme", {}).get("grand_total", 100.0))
+def seed_database(db=None):
+    """
+    Seeds comprehensive academic curriculum, full subject marking schemes,
+    unit distributions, PYQs, and initial revision sheets with zero constraint errors.
+    """
+    close_when_done = False
+    if db is None:
+        Base.metadata.create_all(bind=engine)
+        db = SessionLocal()
+        close_when_done = True
 
-        sub = models.Subject(
-            name=s_info["name"],
-            code=s_info["code"],
-            course_code=s_info.get("course_code"),
-            credits=s_info.get("credits", 4),
-            target_exam=target_exam,
-            total_marks=total_marks,
-            exam_scheme=json.dumps(s_info["exam_scheme"]) if "exam_scheme" in s_info else None,
-            created_at=datetime.datetime.utcnow()
-        )
-        db.add(sub)
-        db.flush()
+    try:
+        # Clear existing data in foreign key dependency order
+        db.query(models.QuizQuestion).delete()
+        db.query(models.Quiz).delete()
+        db.query(models.ChapterSummary).delete()
+        db.query(models.ReadinessMetric).delete()
+        db.query(models.Question).delete()
+        db.query(models.PYQDocument).delete()
+        db.query(models.Chapter).delete()
+        db.query(models.Subject).delete()
+        db.commit()
 
-        # Seed PYQDocument for this subject if sample exists
-        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-        sample_src = os.path.join(BASE_DIR, "sample_docs", sub.code, f"{sub.code}_Endsem_2023.pdf")
-        upload_dest_dir = os.path.join(BASE_DIR, "uploads", sub.code)
-        os.makedirs(upload_dest_dir, exist_ok=True)
-        doc_filename = f"{sub.code}_Semester_5_PYQ_2023.pdf"
-        dest_path = os.path.join(upload_dest_dir, doc_filename)
+        now = get_utc_now()
 
-        if os.path.exists(sample_src):
-            shutil.copyfile(sample_src, dest_path)
-        else:
-            with open(dest_path, "wb") as f:
-                f.write(b"%PDF-1.4\n%PYQ Document\n%%EOF")
+        for s_info in subjects_data:
+            target_exam = s_info.get("target_exam") or "Semester 5 University Endsem"
+            total_marks = float(s_info.get("total_marks") or s_info.get("exam_scheme", {}).get("grand_total", 100.0))
 
-        pyq_doc = models.PYQDocument(
-            subject_id=sub.id,
-            filename=doc_filename,
-            file_path=dest_path,
-            exam_year="2023",
-            exam_session="End-Semester Examination",
-            total_questions_extracted=len(s_info.get("pyqs", [])),
-            uploaded_at=datetime.datetime.utcnow()
-        )
-        db.add(pyq_doc)
-        db.flush()
-
-        ch_map = {}
-        created_chs = []
-        for idx, c_info in enumerate(s_info["chapters"]):
-            unit_num = c_info.get("unit_number")
-            raw_name = c_info["name"]
-            if unit_num is not None:
-                ch_name = f"Unit {unit_num}: {raw_name}"
-            else:
-                ch_name = raw_name
-
-            marks = float(c_info.get("estimated_ese_marks", c_info.get("marks", 15.0)))
-            pct = float(c_info.get("weightage_percent", c_info.get("pct", 15.0)))
-            is_comp = bool(c_info.get("comp", idx < 2))
-
-            ch = models.Chapter(
-                subject_id=sub.id,
-                name=ch_name,
-                unit_number=unit_num if unit_num is not None else idx + 1,
-                order=unit_num if unit_num is not None else idx + 1,
-                teaching_hours=int(c_info.get("teaching_hours", 8)),
-                weightage_marks=marks,
-                estimated_ese_marks=float(c_info.get("estimated_ese_marks", marks)),
-                weightage_percent=pct,
-                topics=json.dumps(c_info.get("topics", [])) if "topics" in c_info else json.dumps([c_info["name"]]),
-                is_completed=is_comp,
-                completed_at=datetime.datetime.utcnow() if is_comp else None
+            sub = models.Subject(
+                name=s_info["name"],
+                code=s_info["code"],
+                course_code=s_info.get("course_code"),
+                credits=s_info.get("credits", 4),
+                target_exam=target_exam,
+                total_marks=total_marks,
+                exam_scheme=json.dumps(s_info["exam_scheme"]) if "exam_scheme" in s_info else None,
+                created_at=now
             )
-            db.add(ch)
+            db.add(sub)
             db.flush()
-            ch_map[ch_name] = ch.id
-            ch_map[raw_name] = ch.id
-            created_chs.append(ch)
 
-        # Add PYQs
-        for ch_name, q_text, q_type, marks, diff in s_info.get("pyqs", []):
-            target_ch_id = ch_map.get(ch_name, created_chs[0].id)
-            q = models.Question(
+            # Seed PYQDocument for this subject if sample exists
+            BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+            sample_src = os.path.join(BASE_DIR, "sample_docs", sub.code, f"{sub.code}_Endsem_2023.pdf")
+            upload_dest_dir = os.path.join(BASE_DIR, "uploads", sub.code)
+            os.makedirs(upload_dest_dir, exist_ok=True)
+            doc_filename = f"{sub.code}_Semester_5_PYQ_2023.pdf"
+            dest_path = os.path.join(upload_dest_dir, doc_filename)
+
+            if os.path.exists(sample_src):
+                shutil.copyfile(sample_src, dest_path)
+            else:
+                with open(dest_path, "wb") as f:
+                    f.write(b"%PDF-1.4\n%PYQ Document\n%%EOF")
+
+            pyq_doc = models.PYQDocument(
                 subject_id=sub.id,
-                chapter_id=target_ch_id,
-                pyq_doc_id=pyq_doc.id,
-                text=q_text,
-                question_type=q_type,
-                marks=marks,
-                difficulty=diff,
+                filename=doc_filename,
+                file_path=dest_path,
                 exam_year="2023",
-                source_paper=f"{s_info['code']} End-Sem Exam",
-                tags=json.dumps([s_info["code"].lower(), q_type.lower()])
+                exam_session="End-Semester Examination",
+                total_questions_extracted=len(s_info.get("pyqs", [])),
+                uploaded_at=now
             )
-            db.add(q)
+            db.add(pyq_doc)
+            db.flush()
 
-        # Pre-seed a completed quiz for Chapter 1
-        ch1 = created_chs[0]
-        quiz = models.Quiz(
-            subject_id=sub.id,
-            chapter_id=ch1.id,
-            title=f"{ch1.name} — Practice Quiz #1",
-            mode="Standard",
-            score=8.5,
-            total_marks=10.0,
-            accuracy_percent=85.0,
-            is_completed=True,
-            created_at=datetime.datetime.utcnow(),
-            completed_at=datetime.datetime.utcnow()
-        )
-        db.add(quiz)
-        db.flush()
+            ch_map = {}
+            created_chs = []
+            for idx, c_info in enumerate(s_info["chapters"]):
+                unit_num = c_info.get("unit_number")
+                raw_name = c_info["name"]
+                if unit_num is not None:
+                    ch_name = f"Unit {unit_num}: {raw_name}"
+                else:
+                    ch_name = raw_name
 
-        # Pre-seed Dual-AI Notes for Chapter 1
-        gemini_summary = gemini_service._fallback_gemini_summary(ch1.name, sub.name)
-        openai_summary = openai_service._fallback_openai_summary(ch1.name, sub.name)
+                marks = float(c_info.get("estimated_ese_marks", c_info.get("marks", 15.0)))
+                pct = float(c_info.get("weightage_percent", c_info.get("pct", 15.0)))
+                is_comp = bool(c_info.get("comp", idx < 2))
 
-        summary = models.ChapterSummary(
-            chapter_id=ch1.id,
-            subject_id=sub.id,
-            gemini_summary_md=gemini_summary["summary_md"],
-            openai_summary_md=openai_summary["summary_md"],
-            key_formulas=json.dumps(gemini_summary["formulas"] + openai_summary["formulas"]),
-            pitfalls=json.dumps(gemini_summary["pitfalls"]),
-            mnemonics=json.dumps(openai_summary["mnemonics"]),
-            generated_at=datetime.datetime.utcnow(),
-            updated_at=datetime.datetime.utcnow()
-        )
-        db.add(summary)
+                ch = models.Chapter(
+                    subject_id=sub.id,
+                    name=ch_name,
+                    unit_number=unit_num if unit_num is not None else idx + 1,
+                    order=unit_num if unit_num is not None else idx + 1,
+                    teaching_hours=int(c_info.get("teaching_hours", 8)),
+                    weightage_marks=marks,
+                    estimated_ese_marks=float(c_info.get("estimated_ese_marks", marks)),
+                    weightage_percent=pct,
+                    topics=json.dumps(c_info.get("topics", [])) if "topics" in c_info else json.dumps([c_info["name"]]),
+                    is_completed=is_comp,
+                    completed_at=now if is_comp else None
+                )
+                db.add(ch)
+                db.flush()
+                ch_map[ch_name] = ch.id
+                ch_map[raw_name] = ch.id
+                created_chs.append(ch)
 
-        # Compute metrics
-        for c in created_chs:
-            analytics_service.calculate_chapter_metrics(db, c.id)
+            # Add PYQs
+            for ch_name, q_text, q_type, q_marks, diff in s_info.get("pyqs", []):
+                target_ch_id = ch_map.get(ch_name, created_chs[0].id)
+                q = models.Question(
+                    subject_id=sub.id,
+                    chapter_id=target_ch_id,
+                    pyq_doc_id=pyq_doc.id,
+                    text=q_text,
+                    question_type=q_type,
+                    marks=q_marks,
+                    difficulty=diff,
+                    exam_year="2023",
+                    source_paper=f"{s_info['code']} End-Sem Exam",
+                    tags=json.dumps([s_info["code"].lower(), q_type.lower()])
+                )
+                db.add(q)
 
-    db.commit()
-    print("Database seeded with DC, SE, AISC, TOC, CNS, MDM and full marking schemes + syllabus successfully!")
+            # Pre-seed a completed quiz for Chapter 1
+            ch1 = created_chs[0]
+            quiz = models.Quiz(
+                subject_id=sub.id,
+                chapter_id=ch1.id,
+                title=f"{ch1.name} — Practice Quiz #1",
+                mode="Standard",
+                score=8.5,
+                total_marks=10.0,
+                accuracy_percent=85.0,
+                is_completed=True,
+                created_at=now,
+                completed_at=now
+            )
+            db.add(quiz)
+            db.flush()
 
-finally:
-    db.close()
+            # Pre-seed Unified Mastery Notes & Handwritten Revision Sheet for Chapter 1
+            gemini_summary = gemini_service._fallback_gemini_summary(ch1.name, sub.name)
+            sheet_result = gemini_service.generate_revision_sheet(
+                chapter_name=ch1.name,
+                subject_name=sub.name,
+                pyqs_context=[item[1] for item in s_info.get("pyqs", []) if item[0] == ch1.name or item[0].startswith(f"Unit {ch1.unit_number}")],
+                existing_pitfalls=gemini_summary.get("pitfalls", []),
+                existing_formulas=gemini_summary.get("formulas", []),
+                chapter_topics=ch1.topics,
+                unit_number=ch1.unit_number
+            )
+
+            summary = models.ChapterSummary(
+                chapter_id=ch1.id,
+                subject_id=sub.id,
+                gemini_summary_md=gemini_summary["summary_md"],
+                openai_summary_md=json.dumps(sheet_result),
+                key_formulas=json.dumps(sheet_result.get("formulas", [])),
+                pitfalls=json.dumps(sheet_result.get("pitfalls", [])),
+                mnemonics=json.dumps(sheet_result.get("mnemonics", [])),
+                generated_at=now,
+                updated_at=now
+            )
+            db.add(summary)
+
+            # Compute metrics
+            for c in created_chs:
+                analytics_service.calculate_chapter_metrics(db, c.id)
+
+        db.commit()
+        print("Database seeded with DC, SE, AISC, TOC, CNS, MDM and full marking schemes + syllabus successfully!")
+        return True
+    finally:
+        if close_when_done:
+            db.close()
+
+
+if __name__ == "__main__":
+    seed_database()

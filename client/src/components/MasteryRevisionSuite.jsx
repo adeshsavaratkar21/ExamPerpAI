@@ -63,7 +63,9 @@ export default function MasteryRevisionSuite({
         const unifiedMd = d.unified_md || d.gemini_summary_md || '';
         if (unifiedMd) {
           setTutorData(buildTutorFromResponse(d));
-          setIsModuleCompleted(d.module_completed || false);
+          if (d.module_completed) {
+            setIsModuleCompleted(true);
+          }
         }
       })
       .catch((err) => {
@@ -72,24 +74,22 @@ export default function MasteryRevisionSuite({
         }
       })
       .finally(() => setTutorLoading(false));
-  }, [selectedChapterId]);
 
-  /* ── Load revision sheet when module is completed ── */
-  useEffect(() => {
-    if (!selectedChapterId || !isModuleCompleted) return;
-
+    // Also check for existing revision sheet
     setSheetLoading(true);
     api
       .getRevisionSheet(selectedChapterId)
-      .then((res) => setRevisionData(res.data))
-      .catch((err) => {
-        // 404 means not generated yet — that's OK
-        if (err.response?.status !== 404) {
-          setSheetError('Failed to load revision sheet.');
+      .then((res) => {
+        if (res.data) {
+          setRevisionData(res.data);
+          setIsModuleCompleted(true);
         }
       })
+      .catch(() => {
+        // Not generated yet
+      })
       .finally(() => setSheetLoading(false));
-  }, [selectedChapterId, isModuleCompleted]);
+  }, [selectedChapterId]);
 
   /* ── Generate tutor ── */
   const handleGenerateTutor = useCallback(
@@ -118,17 +118,22 @@ export default function MasteryRevisionSuite({
   /* ── Mark module complete ── */
   const handleMarkComplete = useCallback(async () => {
     if (!selectedChapterId) return;
+    setIsModuleCompleted(true);
+    setActiveTab('sheet');
     try {
       await api.markModuleComplete(selectedChapterId);
-      setIsModuleCompleted(true);
-      setActiveTab('sheet');
+      if (!revisionData) {
+        setSheetLoading(true);
+        api
+          .getRevisionSheet(selectedChapterId)
+          .then((res) => setRevisionData(res.data))
+          .catch(() => {})
+          .finally(() => setSheetLoading(false));
+      }
     } catch (err) {
       console.error('Mark complete error:', err);
-      // Optimistically unlock anyway
-      setIsModuleCompleted(true);
-      setActiveTab('sheet');
     }
-  }, [selectedChapterId]);
+  }, [selectedChapterId, revisionData]);
 
   /* ── Generate revision sheet ── */
   const handleGenerateRevisionSheet = useCallback(
@@ -143,6 +148,9 @@ export default function MasteryRevisionSuite({
           force_regenerate: force,
         });
         setRevisionData(res.data);
+        setIsModuleCompleted(true);
+        // Persist completion in background
+        api.markModuleComplete(selectedChapterId).catch(() => {});
       } catch (err) {
         console.error('Sheet generation error:', err);
         setSheetError(err.response?.data?.detail || 'Failed to generate revision sheet.');
@@ -168,32 +176,23 @@ export default function MasteryRevisionSuite({
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const isSheet = tab.id === 'sheet';
-          const locked = isSheet && !isModuleCompleted;
           const isActive = activeTab === tab.id;
 
           return (
             <button
               key={tab.id}
-              onClick={() => !locked && setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 isActive
                   ? 'bg-gray-900 text-white shadow-sm'
-                  : locked
-                  ? 'text-gray-400 cursor-not-allowed'
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
               aria-selected={isActive}
               role="tab"
-              disabled={locked}
-              title={locked ? 'Complete the Concept Tutor module to unlock' : undefined}
             >
-              {locked ? (
-                <Lock className="w-3.5 h-3.5" />
-              ) : (
-                <Icon className="w-3.5 h-3.5" />
-              )}
+              <Icon className="w-3.5 h-3.5" />
               {tab.label}
-              {isSheet && isModuleCompleted && (
+              {isSheet && (isModuleCompleted || revisionData) && (
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
               )}
             </button>

@@ -43,7 +43,8 @@ if isinstance(origins, str):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all for seamless local dev & preview
+    allow_origins=origins if origins and "*" not in origins else ["*"],
+    allow_origin_regex=r"https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -72,6 +73,12 @@ def health_check():
         "gemini_ready": bool(settings.GEMINI_API_KEY),
         "openai_ready": bool(settings.OPENAI_API_KEY)
     }
+
+
+# Serve static frontend build if present (for single-service deployment)
+client_dist = os.path.abspath(os.path.join(settings.BASE_DIR, "..", "client", "dist"))
+if os.path.exists(client_dist):
+    app.mount("/", StaticFiles(directory=client_dist, html=True), name="frontend")
 
 
 if __name__ == "__main__":

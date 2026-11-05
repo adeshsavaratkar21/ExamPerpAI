@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000/api' : '/api');
 
 const client = axios.create({
   baseURL: API_BASE_URL,
@@ -72,6 +72,7 @@ export const api = {
 
   // DSA & Campus Placement Mode
   getLeetCodeProfile: (username) => client.get(`/placement/leetcode/${username}`),
+  getLeetCodeAllProblems: (params) => client.get('/placement/leetcode/all-problems', { params }),
   getPlacementRoadmap: (params) => client.get('/placement/roadmap', { params }),
   getPlacementDriveStats: () => client.get('/placement/placement-drive-stats'),
 };

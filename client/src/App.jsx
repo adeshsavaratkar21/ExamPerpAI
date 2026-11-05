@@ -159,6 +159,7 @@ export default function App() {
         <TopHeader
             studentName={studentProfile.name}
             studentProfile={studentProfile}
+            urgentCount={urgentTopicsCount}
             subjects={subjects}
             selectedSubjectId={selectedSubjectId}
             setSelectedSubjectId={setSelectedSubjectId}

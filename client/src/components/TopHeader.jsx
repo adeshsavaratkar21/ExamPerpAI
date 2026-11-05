@@ -4,6 +4,7 @@ import { Search, Bell, Settings, LogOut } from 'lucide-react';
 export default function TopHeader({ 
   studentName = "Melissa",
   studentProfile,
+  urgentCount = 0,
   onOpenSettings,
   onOpenProfile,
   onLogout,
@@ -41,11 +42,13 @@ export default function TopHeader({
 
           {/* Notification Bell Pill */}
           <button 
-            title="Notifications"
-            className="relative w-10 h-10 rounded-2xl bg-white border border-gray-200/90 flex items-center justify-center text-gray-600 hover:text-gray-900 shadow-sm hover:bg-gray-50 transition-colors shrink-0"
+            title={urgentCount > 0 ? `${urgentCount} urgent topic quizzes pending` : "No urgent notifications"}
+            className="relative w-10 h-10 rounded-2xl bg-white border border-gray-200/90 flex items-center justify-center text-gray-600 hover:text-gray-900 shadow-sm hover:bg-gray-50 transition-colors shrink-0 cursor-pointer"
           >
             <Bell className="w-4 h-4" />
-            <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
+            {urgentCount > 0 && (
+              <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white animate-pulse" />
+            )}
           </button>
 
           {/* Settings button */}

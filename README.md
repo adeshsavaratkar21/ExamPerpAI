@@ -12,10 +12,10 @@
 |                                              ExamPrepAI PLATFORM                                            |
 +-------------------------------------------------------------------------------------------------------------+
 | 1. University Exam Engine            | 2. DSA & Placement Mode           | 3. Core CS Technical Hub         |
-| - PYQ Extraction (pypdf/pdfplumber)  | - Full Striver A2Z Sheet (466 Qs) | - Interactive Architecture Visual|
-| - Textbook & Slide RAG (PDF/PPTX)    | - Direct LeetCode Problem Links   | - CCN, OS, DBMS, OOPs, SQL       |
-| - Adaptive 10-Question Practice Quiz | - Live LeetCode Profile Live-Sync | - TCP 3-Way Handshake Simulator  |
-| - Dual-AI Revision Notes (Gemini+GPT)| - Dedicated DSA Practice Tracker  | - OSI vs TCP/IP Protocol Stack   |
+| - PYQ Extraction (pypdf/pdfplumber)  | - Complete 4,095 LeetCode Library | - Interactive Architecture Visual|
+| - Textbook & Slide RAG (PDF/PPTX)    | - Full Striver A2Z Sheet (466 Qs) | - CCN, OS, DBMS, OOPs, SQL       |
+| - Adaptive 10-Question Practice Quiz | - Direct LeetCode Problem Links   | - TCP 3-Way Handshake Simulator  |
+| - Dual-AI Revision Notes (Gemini+GPT)| - Live LeetCode Profile Live-Sync | - OSI vs TCP/IP Protocol Stack   |
 | - Strategic 4-Quadrant Readiness     | - Easy / Medium / Hard Breakdown  | - Virtual Memory & ACID Pillars  |
 +-------------------------------------------------------------------------------------------------------------+
                                        |                                  |

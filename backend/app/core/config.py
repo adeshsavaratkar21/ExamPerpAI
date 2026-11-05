@@ -5,8 +5,21 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DEFAULT_DB_PATH = os.path.join(BACKEND_DIR, "examprep.db").replace("\\", "/")
-DEFAULT_UPLOAD_DIR = os.path.join(BACKEND_DIR, "uploads").replace("\\", "/")
+
+# Detect Vercel serverless environment and configure writable paths
+if os.environ.get("VERCEL"):
+    import shutil
+    DEFAULT_DB_PATH = "/tmp/examprep.db"
+    DEFAULT_UPLOAD_DIR = "/tmp/uploads"
+    src_db = os.path.join(BACKEND_DIR, "examprep.db")
+    if os.path.exists(src_db) and not os.path.exists(DEFAULT_DB_PATH):
+        try:
+            shutil.copyfile(src_db, DEFAULT_DB_PATH)
+        except Exception as e:
+            print(f"[Vercel] DB copy note: {e}")
+else:
+    DEFAULT_DB_PATH = os.path.join(BACKEND_DIR, "examprep.db").replace("\\", "/")
+    DEFAULT_UPLOAD_DIR = os.path.join(BACKEND_DIR, "uploads").replace("\\", "/")
 
 
 class Settings(BaseSettings):

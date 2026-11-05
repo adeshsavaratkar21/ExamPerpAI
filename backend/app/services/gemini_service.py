@@ -617,8 +617,8 @@ When answering this topic in university exams, professors award maximum marks to
 
     def _fallback_quiz_generator(self, chapter_name: str, subject_name: str, count: int) -> List[Dict[str, Any]]:
         specific = get_subject_quiz_bank(subject_name, chapter_name, count)
-        if specific:
-            return specific
+        if specific and len(specific) >= count:
+            return specific[:count]
 
         bank = [
             {
@@ -752,7 +752,11 @@ When answering this topic in university exams, professors award maximum marks to
                 "marks": 1.0
             }
         ]
-        return bank[:count]
+        combined = (specific or []) + bank
+        if len(combined) < count:
+            while len(combined) < count:
+                combined.extend(combined[:count - len(combined)])
+        return combined[:count]
 
     def _extract_pitfalls_from_md(self, md: str) -> List[str]:
         pitfalls = []
@@ -868,6 +872,11 @@ Important Constraints:
         pyqs_context: Optional[List[str]] = None,
         existing_pitfalls: Optional[List[str]] = None,
         existing_formulas: Optional[List[str]] = None,
+        chapter_topics: Optional[str] = None,
+        unit_number: Optional[int] = None,
+        book_context: Optional[str] = None,
+        *args,
+        **kwargs
     ) -> Dict[str, Any]:
         """
         Generates a concise 1-page handwritten-style revision sheet as structured data:
@@ -879,17 +888,20 @@ Important Constraints:
         """
         client = self.get_client()
         pyq_snippet = "\n".join(f"- {q}" for q in (pyqs_context or [])[:5])
+        topics_snippet = f"\nTopics:\n{chapter_topics}" if chapter_topics else ""
+        book_snippet = f"\nTextbook Excerpts:\n{book_context[:800]}" if book_context else ""
 
         if client:
+            unit_info = f" (Unit {unit_number})" if unit_number else ""
             prompt = f"""
-You are creating a condensed "1-Page Handwritten Revision Sheet" for a student's exam.
+You are creating a condensed "1-Page Handwritten Revision Sheet" for a student's university exam.
 Subject: {subject_name}
-Chapter: {chapter_name}
+Chapter: {chapter_name}{unit_info}{topics_snippet}{book_snippet}
 
 Past Exam Questions:
-{pyq_snippet if pyq_snippet else "Standard university questions"}
+{pyq_snippet if pyq_snippet else "Standard university syllabus questions"}
 
-Return ONLY valid JSON (no markdown, no code blocks) in this exact structure:
+Return ONLY valid JSON (no markdown wrapping, no code blocks) in this exact structure:
 {{
   "summary_md": "Concise markdown body — key definitions, theorems, and derivations. Use $...$ for inline math and $$...$$ on separate lines for block math. Max 250 words.",
   "formulas": ["Formula 1 with notation", "Formula 2 with notation", "..."],
@@ -899,7 +911,7 @@ Return ONLY valid JSON (no markdown, no code blocks) in this exact structure:
 }}
 
 Rules:
-- summary_md: 3-5 bullet points or short paragraphs with key concepts
+- summary_md: 3-5 bullet points or short paragraphs with key high-yield concepts
 - formulas: exactly 4-6 key formulas
 - mnemonics: exactly 3-4 memory hooks
 - pitfalls: exactly 3-4 common exam errors
@@ -928,19 +940,36 @@ Rules:
 
         # Fallback
         fb = self._fallback_gemini_summary(chapter_name, subject_name)
+        fb_formulas = existing_formulas or fb.get("formulas") or []
+        if not fb_formulas or fb_formulas == ["Standard curriculum formulations apply"]:
+            extracted = self._extract_formulas_from_md(fb.get("summary_md", ""))
+            if extracted:
+                fb_formulas = extracted
+
+        # Format high yield summary markdown
+        raw_md = fb.get("summary_md", "")
+        summary_md = raw_md[:1000] if len(raw_md) > 1000 else raw_md
+
         return {
-            "summary_md": fb["summary_md"][:800],
-            "formulas": existing_formulas or fb["formulas"],
+            "summary_md": summary_md,
+            "formulas": fb_formulas or [
+                f"Core equations and algorithmic complexities for {chapter_name}",
+                "State time & space trade-offs clearly in university solutions"
+            ],
             "mnemonics": [
                 f"CORE = C-oncept, O-peration, R-esult, E-xample for {chapter_name}",
-                "Remember: Always write units, check boundary conditions",
+                "Check boundary conditions, units, and draw neat architectural diagrams",
+                f"TRAP: Distinguish theoretical guarantees from real-world implementation limits in {chapter_name}"
             ],
-            "pitfalls": existing_pitfalls or fb["pitfalls"],
+            "pitfalls": existing_pitfalls or fb.get("pitfalls") or [
+                f"Overlooking boundary cases in {chapter_name}",
+                "Omitting step-by-step intermediate state calculations"
+            ],
             "exam_questions": [
-                f"Define and explain {chapter_name} with examples. (5 marks)",
-                f"Derive the key formula for {chapter_name}. (7 marks)",
-                f"Compare and contrast two approaches in {chapter_name}. (5 marks)",
-                f"Solve a numerical problem involving {chapter_name}. (10 marks)",
+                f"Define and explain {chapter_name} with architecture diagrams. (5 marks)",
+                f"Derive the key formula or state algorithm steps for {chapter_name}. (7 marks)",
+                f"Compare and contrast the primary approaches used in {chapter_name}. (5 marks)",
+                f"Solve a typical university numerical or design problem involving {chapter_name}. (10 marks)",
             ],
         }
 

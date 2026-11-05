@@ -1,3 +1,5 @@
+import os
+import json
 import httpx
 import logging
 from typing import Optional, List, Dict, Any
@@ -385,6 +387,73 @@ CURATED_DSA_PROBLEMS = [
         "spit_frequency": "Mandatory in Technical Interviews"
     }
 ]
+
+
+# ---------------- ALL 4,095 LEETCODE PROBLEMS CATALOG ---------------- #
+LEETCODE_ALL_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "leetcode_4095.json")
+
+@router.get("/leetcode/all-problems")
+def get_all_leetcode_problems(
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=500),
+    search: Optional[str] = None,
+    difficulty: Optional[str] = None,
+    tag: Optional[str] = None,
+    paid: Optional[bool] = None,
+    full: bool = Query(False)
+):
+    """
+    Returns the comprehensive catalog of all 4,095 LeetCode problems
+    with fast search, filtering by difficulty, topic tags, and access type.
+    """
+    if not os.path.exists(LEETCODE_ALL_FILE):
+        raise HTTPException(status_code=404, detail="LeetCode problems dataset not found on server.")
+
+    with open(LEETCODE_ALL_FILE, "r", encoding="utf-8") as f:
+        problems = json.load(f)
+
+    if full:
+        return {
+            "total_count": len(problems),
+            "problems": problems
+        }
+
+    filtered = problems
+
+    # 1. Search (ID, title, or tag)
+    if search:
+        s = search.strip().lower()
+        filtered = [
+            p for p in filtered
+            if s in str(p.get("id")).lower()
+            or s in p.get("title", "").lower()
+            or any(s in t.lower() for t in p.get("tags", []))
+        ]
+
+    # 2. Difficulty filter
+    if difficulty and difficulty != "All":
+        filtered = [p for p in filtered if p.get("difficulty", "").lower() == difficulty.lower()]
+
+    # 3. Topic Tag filter
+    if tag and tag != "All":
+        filtered = [p for p in filtered if any(tag.lower() == t.lower() for t in p.get("tags", []))]
+
+    # 4. Paid / Free filter
+    if paid is not None:
+        filtered = [p for p in filtered if p.get("paid") == paid]
+
+    total_filtered = len(filtered)
+    start_idx = (page - 1) * limit
+    end_idx = start_idx + limit
+    page_problems = filtered[start_idx:end_idx]
+
+    return {
+        "total_count": total_filtered,
+        "page": page,
+        "limit": limit,
+        "total_pages": (total_filtered + limit - 1) // limit if total_filtered > 0 else 1,
+        "problems": page_problems
+    }
 
 
 # ---------------- LEETCODE FETCHING LOGIC ---------------- #

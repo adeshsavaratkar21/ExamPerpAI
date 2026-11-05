@@ -1,3 +1,4 @@
+import os
 import urllib.request
 import json
 import uuid
@@ -27,14 +28,18 @@ sub_id = subjects[0]['id']
 
 print('=== 3. Testing PYQ Upload with Sample PDF ===')
 boundary = uuid.uuid4().hex
-with open('sample_docs/Operating_Systems_PYQ_2023.pdf', 'rb') as f:
+import glob
+
+sample_pdfs = glob.glob('sample_docs/*/*.pdf')
+sample_pdf_path = sample_pdfs[0] if sample_pdfs else 'sample_docs/DC/DC_Endsem_2023.pdf'
+with open(sample_pdf_path, 'rb') as f:
     file_bytes = f.read()
 
 parts = [
     f'--{boundary}\r\nContent-Disposition: form-data; name="subject_id"\r\n\r\n{sub_id}\r\n'.encode('utf-8'),
     f'--{boundary}\r\nContent-Disposition: form-data; name="exam_year"\r\n\r\n2023\r\n'.encode('utf-8'),
     f'--{boundary}\r\nContent-Disposition: form-data; name="exam_session"\r\n\r\nWinter End-Semester\r\n'.encode('utf-8'),
-    f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="Operating_Systems_PYQ_2023.pdf"\r\nContent-Type: application/pdf\r\n\r\n'.encode('utf-8') + file_bytes + b'\r\n',
+    f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{os.path.basename(sample_pdf_path)}"\r\nContent-Type: application/pdf\r\n\r\n'.encode('utf-8') + file_bytes + b'\r\n',
     f'--{boundary}--\r\n'.encode('utf-8')
 ]
 multipart_body = b''.join(parts)

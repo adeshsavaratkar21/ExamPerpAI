@@ -1,34 +1,52 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Trophy, 
   CheckCircle2, 
-  Clock, 
-  Flame, 
   Target, 
   Sparkles, 
-  Layers, 
   ExternalLink, 
-  RefreshCw,
-  TrendingUp,
-  BarChart3,
-  Code2,
-  ChevronRight
+  BarChart3, 
+  Code2, 
+  Tag
 } from 'lucide-react';
-import { STRIVER_STEPS } from '../../data/striverSheetData';
+
+const TOTAL_LEETCODE = 4095;
+const TOTAL_EASY = 974;
+const TOTAL_MEDIUM = 2135;
+const TOTAL_HARD = 986;
+
+const POPULAR_LEETCODE_TOPICS = [
+  { name: 'Array', total: 2273 },
+  { name: 'String', total: 895 },
+  { name: 'Hash Table', total: 843 },
+  { name: 'Math', total: 710 },
+  { name: 'Dynamic Programming', total: 684 },
+  { name: 'Sorting', total: 540 },
+  { name: 'Greedy', total: 483 },
+  { name: 'Binary Search', total: 356 },
+  { name: 'Depth-First Search', total: 349 },
+  { name: 'Database', total: 310 },
+  { name: 'Matrix', total: 285 },
+  { name: 'Tree', total: 270 },
+  { name: 'Two Pointers', total: 263 },
+  { name: 'Graph Theory', total: 190 },
+  { name: 'Stack', total: 182 },
+  { name: 'Sliding Window', total: 175 }
+];
 
 export default function DsaProgressRail({ studentProfile, onNavigateTab }) {
-  // Solved IDs from localStorage
+  // Solved LeetCode Question IDs from localStorage (4,095 catalog)
   const [solvedIds, setSolvedIds] = useState(() => {
     try {
-      const saved = localStorage.getItem('examprep_striver_solved');
+      const saved = localStorage.getItem('examprep_leetcode_all_solved');
       if (saved) return JSON.parse(saved);
     } catch (e) {
       console.error(e);
     }
-    return ["s1_4", "s1_6", "s1_14", "s2_1", "s3_1", "s3_11", "s3_14", "s6_4"];
+    return [1, 2, 3, 20, 21, 53, 70, 121, 141, 206, 226]; // Initial sample
   });
 
-  // Synced LeetCode Data from localStorage
+  // Synced LeetCode Profile Data (e.g. @Adesh_21)
   const [leetcodeData, setLeetcodeData] = useState(() => {
     try {
       const saved = localStorage.getItem('examprep_leetcode_data');
@@ -39,14 +57,38 @@ export default function DsaProgressRail({ studentProfile, onNavigateTab }) {
     return null;
   });
 
-  const [activeView, setActiveView] = useState('sheet'); // 'sheet' | 'leetcode'
+  // Problem metadata map: id -> { difficulty, tags }
+  const [problemMap, setProblemMap] = useState(null);
 
-  // Listen for storage events or custom updates when user checks problems in DSA Sheet
+  // Load problem metadata for accurate difficulty & topic mapping
+  useEffect(() => {
+    let isMounted = true;
+    fetch('/data/leetcode_4095.json')
+      .then(res => res.json())
+      .then(data => {
+        if (!isMounted) return;
+        const map = new Map();
+        data.forEach(p => {
+          map.set(Number(p.id), {
+            difficulty: p.difficulty,
+            tags: p.tags || []
+          });
+        });
+        setProblemMap(map);
+      })
+      .catch(err => {
+        console.warn('Could not load /data/leetcode_4095.json for rail:', err);
+      });
+
+    return () => { isMounted = false; };
+  }, []);
+
+  // Listen for storage events or updates when user checks problems in LeetCode Tab
   useEffect(() => {
     const handleStorageUpdate = () => {
       try {
-        const savedSolved = localStorage.getItem('examprep_striver_solved');
-        if (savedSolved) setSolvedIds(JSON.parse(savedSolved));
+        const savedLCAll = localStorage.getItem('examprep_leetcode_all_solved');
+        if (savedLCAll) setSolvedIds(JSON.parse(savedLCAll));
         const savedLC = localStorage.getItem('examprep_leetcode_data');
         if (savedLC) setLeetcodeData(JSON.parse(savedLC));
       } catch (e) {
@@ -65,74 +107,60 @@ export default function DsaProgressRail({ studentProfile, onNavigateTab }) {
     };
   }, []);
 
-  // Compute total, easy, medium, hard counts across DSA Sheet
-  let totalSheetProblems = 0;
-  let totalEasy = 0;
-  let totalMedium = 0;
-  let totalHard = 0;
+  // Calculate difficulty counts from solved questions
+  const { solvedEasy, solvedMedium, solvedHard, topicSolvedCounts } = useMemo(() => {
+    let easy = 0;
+    let med = 0;
+    let hard = 0;
+    const tagCounts = {};
 
-  let solvedEasy = 0;
-  let solvedMedium = 0;
-  let solvedHard = 0;
+    if (problemMap) {
+      solvedIds.forEach(id => {
+        const info = problemMap.get(Number(id));
+        if (info) {
+          if (info.difficulty === 'Easy') easy++;
+          else if (info.difficulty === 'Medium') med++;
+          else if (info.difficulty === 'Hard') hard++;
 
-  const topicProgress = [];
-
-  STRIVER_STEPS.forEach((step) => {
-    let stepTotal = 0;
-    let stepSolved = 0;
-
-    step.topics.forEach((t) => {
-      t.problems.forEach((p) => {
-        totalSheetProblems++;
-        stepTotal++;
-
-        const isSolved = solvedIds.includes(p.id);
-        if (isSolved) stepSolved++;
-
-        if (p.difficulty === 'Easy') {
-          totalEasy++;
-          if (isSolved) solvedEasy++;
-        } else if (p.difficulty === 'Medium') {
-          totalMedium++;
-          if (isSolved) solvedMedium++;
-        } else if (p.difficulty === 'Hard') {
-          totalHard++;
-          if (isSolved) solvedHard++;
+          info.tags.forEach(t => {
+            tagCounts[t] = (tagCounts[t] || 0) + 1;
+          });
         }
       });
-    });
+    }
 
-    topicProgress.push({
-      step: step.step,
-      title: step.title.replace(/^Step \d+:\s*/, ''),
-      total: stepTotal,
-      solved: stepSolved,
-      pct: Math.round((stepSolved / Math.max(stepTotal, 1)) * 100)
-    });
-  });
+    // Merge with synced live LeetCode handle counts if available and higher
+    if (leetcodeData) {
+      easy = Math.max(easy, leetcodeData.easy_solved || 0);
+      med = Math.max(med, leetcodeData.medium_solved || 0);
+      hard = Math.max(hard, leetcodeData.hard_solved || 0);
+    }
 
-  const totalCovered = solvedIds.length;
-  const totalRemainder = Math.max(totalSheetProblems - totalCovered, 0);
-  const overallPercent = Math.round((totalCovered / Math.max(totalSheetProblems, 1)) * 100);
+    return {
+      solvedEasy: easy,
+      solvedMedium: med,
+      solvedHard: hard,
+      topicSolvedCounts: tagCounts
+    };
+  }, [solvedIds, problemMap, leetcodeData]);
 
-  const easyRemainder = Math.max(totalEasy - solvedEasy, 0);
-  const mediumRemainder = Math.max(totalMedium - solvedMedium, 0);
-  const hardRemainder = Math.max(totalHard - solvedHard, 0);
+  // Overall LeetCode Progress
+  const totalCovered = Math.max(solvedIds.length, (solvedEasy + solvedMedium + solvedHard));
+  const totalRemainder = Math.max(TOTAL_LEETCODE - totalCovered, 0);
+  const overallPercent = Math.min(Math.round((totalCovered / TOTAL_LEETCODE) * 100), 100);
 
-  const easyPct = Math.round((solvedEasy / Math.max(totalEasy, 1)) * 100);
-  const mediumPct = Math.round((solvedMedium / Math.max(totalMedium, 1)) * 100);
-  const hardPct = Math.round((solvedHard / Math.max(totalHard, 1)) * 100);
+  const easyRemainder = Math.max(TOTAL_EASY - solvedEasy, 0);
+  const mediumRemainder = Math.max(TOTAL_MEDIUM - solvedMedium, 0);
+  const hardRemainder = Math.max(TOTAL_HARD - solvedHard, 0);
 
-  // LeetCode stats fallback
-  const lcTotal = leetcodeData?.total_solved || totalCovered;
-  const lcEasy = leetcodeData?.easy_solved || solvedEasy;
-  const lcMed = leetcodeData?.medium_solved || solvedMedium;
-  const lcHard = leetcodeData?.hard_solved || solvedHard;
+  const easyPct = Math.round((solvedEasy / TOTAL_EASY) * 100);
+  const mediumPct = Math.round((solvedMedium / TOTAL_MEDIUM) * 100);
+  const hardPct = Math.round((solvedHard / TOTAL_HARD) * 100);
 
   return (
     <aside className="w-84 bg-white border-l border-gray-200/80 p-4 flex flex-col gap-4 shrink-0 h-screen sticky top-0 overflow-y-auto scrollbar-thin">
       
-      {/* 1. Header: DSA & Placement Tracker */}
+      {/* 1. Header: LeetCode Practice Tracker */}
       <div className="pb-3 border-b border-gray-100 shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -141,10 +169,10 @@ export default function DsaProgressRail({ studentProfile, onNavigateTab }) {
             </div>
             <div>
               <h3 className="font-black text-gray-950 text-xs tracking-tight">
-                DSA Practice Tracker
+                LeetCode Practice Tracker
               </h3>
               <p className="text-[10px] text-gray-400 font-semibold">
-                Questions Covered & Remainder
+                Questions Covered & Remainder (4,095 Qs)
               </p>
             </div>
           </div>
@@ -170,7 +198,7 @@ export default function DsaProgressRail({ studentProfile, onNavigateTab }) {
               {totalCovered}
             </span>
             <span className="text-[11px] font-bold text-emerald-600/80">
-              / {totalSheetProblems}
+              / {TOTAL_LEETCODE}
             </span>
           </div>
           <p className="text-[10px] font-semibold text-emerald-700 mt-1">
@@ -195,21 +223,21 @@ export default function DsaProgressRail({ studentProfile, onNavigateTab }) {
             </span>
           </div>
           <p className="text-[10px] font-semibold text-amber-700 mt-1">
-            To clear sheet
+            To clear library
           </p>
         </div>
       </div>
 
-      {/* 3. Overall Sheet Completion Bar */}
+      {/* 3. Overall LeetCode Completion Bar */}
       <div className="p-3.5 rounded-2xl bg-[#F8F9FC] border border-gray-100 shrink-0">
         <div className="flex items-center justify-between text-xs mb-1.5 font-bold">
-          <span className="text-gray-600 text-[11px]">Roadmap Completion</span>
-          <span className="text-amber-700 font-black">{totalCovered} of {totalSheetProblems} Solved</span>
+          <span className="text-gray-600 text-[11px]">LeetCode Library Completion</span>
+          <span className="text-amber-700 font-black">{totalCovered} of {TOTAL_LEETCODE} Solved</span>
         </div>
         <div className="w-full h-2.5 bg-gray-200/80 rounded-full overflow-hidden">
           <div 
             className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full transition-all duration-500"
-            style={{ width: `${overallPercent}%` }}
+            style={{ width: `${Math.max(overallPercent, 0.5)}%` }}
           />
         </div>
         <div className="flex items-center justify-between text-[10px] text-gray-400 font-semibold mt-2">
@@ -218,7 +246,7 @@ export default function DsaProgressRail({ studentProfile, onNavigateTab }) {
         </div>
       </div>
 
-      {/* 4. Question Difficulty Breakdown: EASY, MEDIUM, HARD */}
+      {/* 4. Question Difficulty Breakdown: EASY, MEDIUM, HARD (out of 4,095) */}
       <div className="space-y-3 shrink-0">
         <div className="flex items-center justify-between px-0.5">
           <h4 className="text-[11px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
@@ -241,7 +269,7 @@ export default function DsaProgressRail({ studentProfile, onNavigateTab }) {
             </div>
             <div className="flex items-baseline gap-1 text-xs">
               <span className="font-black text-emerald-800">{solvedEasy}</span>
-              <span className="text-[11px] font-semibold text-emerald-600">/ {totalEasy}</span>
+              <span className="text-[11px] font-semibold text-emerald-600">/ {TOTAL_EASY}</span>
               <span className="text-[10px] font-bold text-gray-400 ml-1">
                 ({easyRemainder} left)
               </span>
@@ -272,7 +300,7 @@ export default function DsaProgressRail({ studentProfile, onNavigateTab }) {
             </div>
             <div className="flex items-baseline gap-1 text-xs">
               <span className="font-black text-orange-800">{solvedMedium}</span>
-              <span className="text-[11px] font-semibold text-orange-600">/ {totalMedium}</span>
+              <span className="text-[11px] font-semibold text-orange-600">/ {TOTAL_MEDIUM}</span>
               <span className="text-[10px] font-bold text-gray-400 ml-1">
                 ({mediumRemainder} left)
               </span>
@@ -303,7 +331,7 @@ export default function DsaProgressRail({ studentProfile, onNavigateTab }) {
             </div>
             <div className="flex items-baseline gap-1 text-xs">
               <span className="font-black text-rose-800">{solvedHard}</span>
-              <span className="text-[11px] font-semibold text-rose-600">/ {totalHard}</span>
+              <span className="text-[11px] font-semibold text-rose-600">/ {TOTAL_HARD}</span>
               <span className="text-[10px] font-bold text-gray-400 ml-1">
                 ({hardRemainder} left)
               </span>
@@ -376,42 +404,45 @@ export default function DsaProgressRail({ studentProfile, onNavigateTab }) {
         </div>
       )}
 
-      {/* 6. Step-by-Step Topic Coverage Mini Checklist */}
+      {/* 6. Topic-Wise Coverage Mini Checklist */}
       <div className="space-y-2 pt-2 border-t border-gray-100 flex-1">
-        <h4 className="text-[11px] font-black uppercase tracking-wider text-gray-400 px-0.5">
-          Topic-Wise Coverage
+        <h4 className="text-[11px] font-black uppercase tracking-wider text-gray-400 px-0.5 flex items-center gap-1.5">
+          <Tag className="w-3.5 h-3.5 text-gray-400" />
+          <span>Topic-Wise Coverage</span>
         </h4>
 
         <div className="space-y-1.5 overflow-y-auto max-h-56 pr-1 scrollbar-thin">
-          {topicProgress.map((tp) => (
-            <div 
-              key={tp.step}
-              className="p-2 rounded-xl bg-gray-50/80 hover:bg-gray-100/80 border border-gray-100 transition-colors flex items-center justify-between text-xs"
-            >
-              <div className="min-w-0 flex-1 pr-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-4 h-4 rounded-md bg-white border border-gray-200 flex items-center justify-center text-[10px] font-black text-gray-700 shrink-0">
-                    {tp.step}
-                  </span>
-                  <span className="font-bold text-gray-800 text-[11px] truncate">
-                    {tp.title}
-                  </span>
-                </div>
-                <div className="w-full h-1 bg-gray-200 rounded-full mt-1.5 overflow-hidden">
-                  <div 
-                    className={`h-full rounded-full transition-all ${
-                      tp.pct === 100 ? 'bg-emerald-500' : tp.pct > 0 ? 'bg-amber-400' : 'bg-transparent'
-                    }`}
-                    style={{ width: `${tp.pct}%` }}
-                  />
-                </div>
-              </div>
+          {POPULAR_LEETCODE_TOPICS.map((topic) => {
+            const solved = topicSolvedCounts[topic.name] || 0;
+            const pct = Math.round((solved / topic.total) * 100);
 
-              <span className="text-[10px] font-black text-gray-500 shrink-0">
-                {tp.solved}/{tp.total}
-              </span>
-            </div>
-          ))}
+            return (
+              <div 
+                key={topic.name}
+                className="p-2 rounded-xl bg-gray-50/80 hover:bg-gray-100/80 border border-gray-100 transition-colors flex items-center justify-between text-xs"
+              >
+                <div className="min-w-0 flex-1 pr-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-gray-800 text-[11px] truncate">
+                      {topic.name}
+                    </span>
+                  </div>
+                  <div className="w-full h-1 bg-gray-200 rounded-full mt-1.5 overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all ${
+                        pct === 100 ? 'bg-emerald-500' : pct > 0 ? 'bg-amber-400' : 'bg-transparent'
+                      }`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+
+                <span className="text-[10px] font-black text-gray-500 shrink-0">
+                  {solved}/{topic.total}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
 

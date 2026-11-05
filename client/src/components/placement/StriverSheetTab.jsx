@@ -63,24 +63,24 @@ export default function StriverSheetTab({ solvedIds, onToggleSolved, onSelectHin
         <div>
           <div className="flex items-center gap-2 mb-1.5">
             <span className="px-2.5 py-0.5 rounded-full bg-amber-400 text-gray-950 font-black text-[11px] shadow-2xs">
-              STRUCTURED ROADMAP
+              ATOZ SHEET
             </span>
             <span className="text-xs font-extrabold text-gray-500">
               Topic-Wise Question Sequence
             </span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
-            DSA Sheet ⚡
+            AtoZ Sheet ⚡
           </h2>
           <p className="text-xs sm:text-sm text-gray-500 font-medium mt-1">
             Master algorithmic problem solving step-by-step from language basics to Dynamic Programming & Graphs.
           </p>
         </div>
 
-        {/* DSA Sheet Completion Stats */}
+        {/* AtoZ Sheet Completion Stats */}
         <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs min-w-[240px]">
           <div className="flex items-center justify-between text-xs font-bold mb-1.5">
-            <span className="text-gray-500">DSA Sheet Completion</span>
+            <span className="text-gray-500">AtoZ Sheet Completion</span>
             <span className="text-amber-600 font-black text-sm">{completionPercent}%</span>
           </div>
           <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
