@@ -119,7 +119,9 @@ export default function ReferenceBooksModal({
     }
   };
 
-  const API_HOST = 'http://127.0.0.1:8000';
+  const API_HOST = import.meta.env.VITE_API_URL 
+    ? import.meta.env.VITE_API_URL.replace(/\/api$/, '') 
+    : (import.meta.env.DEV ? 'http://127.0.0.1:8000' : window.location.origin);
   const getFullFileUrl = (url) => {
     if (!url) return '';
     if (url.startsWith('http')) return url;

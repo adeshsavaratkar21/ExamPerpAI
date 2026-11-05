@@ -6,7 +6,7 @@ export default function PdfViewerModal({ isOpen, onClose, paper }) {
 
   const backendOrigin = import.meta.env.VITE_API_URL 
     ? import.meta.env.VITE_API_URL.replace('/api', '') 
-    : 'http://127.0.0.1:8000';
+    : (import.meta.env.DEV ? 'http://127.0.0.1:8000' : window.location.origin);
 
   const fullUrl = paper.file_url?.startsWith('http') 
     ? paper.file_url 

@@ -60,19 +60,32 @@ export default function Dashboard({
   if (subjects.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[400px] p-6">
-        <div className="max-w-md w-full bg-white rounded-2xl border border-gray-200 shadow-sm p-6 text-center space-y-4">
-          <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto text-xl">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-gray-200/90 shadow-sm p-7 text-center space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto text-2xl shadow-xs">
             ⚡
           </div>
-          <h3 className="text-base font-bold text-gray-900">Waiting for Backend Connection</h3>
-          <p className="text-xs text-gray-500">
-            {initialError ? `Error: ${initialError}` : 'The frontend could not connect to the FastAPI backend at http://127.0.0.1:8000.'}
-          </p>
+          <div>
+            <h3 className="text-base sm:text-lg font-black text-gray-900">
+              {initialError ? "Waiting for Backend Connection" : "Initialize Semester 5 Curriculum"}
+            </h3>
+            <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+              {initialError 
+                ? `Connection error: ${initialError}. Please ensure the backend service is running.`
+                : "Your database is connected. Click below to load the official Semester 5 curriculum, unit marking schemes, and question banks."}
+            </p>
+          </div>
           <button
-            onClick={() => onRetryInitial && onRetryInitial()}
-            className="w-full py-2.5 px-4 bg-amber-400 hover:bg-amber-500 text-gray-950 font-semibold text-xs rounded-xl transition-colors shadow-sm"
+            onClick={async () => {
+              try {
+                await api.seedDatabase();
+              } catch (e) {
+                console.error(e);
+              }
+              if (onRetryInitial) onRetryInitial();
+            }}
+            className="w-full py-3 px-5 bg-amber-400 hover:bg-amber-500 text-gray-950 font-black text-xs sm:text-sm rounded-2xl transition-all shadow-xs hover:scale-102 active:scale-98 cursor-pointer"
           >
-            Retry Connection Now
+            {initialError ? "Retry Connection Now" : "Load Curriculum & Syllabus"}
           </button>
         </div>
       </div>

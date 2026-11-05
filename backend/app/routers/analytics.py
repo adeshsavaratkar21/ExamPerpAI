@@ -18,8 +18,18 @@ router = APIRouter(tags=["Analytics & Syllabus Management"])
 def get_subjects(db: Session = Depends(get_db)):
     """
     Returns all subjects with calculated readiness and chapter counts.
+    Auto-seeds default semester curriculum if the database is clean.
     """
     subjects = db.query(models.Subject).order_by(models.Subject.id).all()
+    if not subjects:
+        try:
+            print("[ExamPrepAI] Empty database detected on /subjects request. Auto-seeding curriculum...")
+            from seed_curriculum import seed_database
+            seed_database(db)
+            subjects = db.query(models.Subject).order_by(models.Subject.id).all()
+        except Exception as e:
+            print(f"[get_subjects] Auto-seed error: {e}")
+
     results = []
     for s in subjects:
         ch_count = len(s.chapters)

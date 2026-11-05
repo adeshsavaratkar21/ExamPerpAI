@@ -696,16 +696,20 @@ def seed_database(db=None):
             # Seed PYQDocument for this subject if sample exists
             BASE_DIR = os.path.dirname(os.path.abspath(__file__))
             sample_src = os.path.join(BASE_DIR, "sample_docs", sub.code, f"{sub.code}_Endsem_2023.pdf")
-            upload_dest_dir = os.path.join(BASE_DIR, "uploads", sub.code)
-            os.makedirs(upload_dest_dir, exist_ok=True)
+            upload_dest_dir = os.path.join(settings.UPLOAD_DIR, sub.code)
             doc_filename = f"{sub.code}_Semester_5_PYQ_2023.pdf"
             dest_path = os.path.join(upload_dest_dir, doc_filename)
 
-            if os.path.exists(sample_src):
-                shutil.copyfile(sample_src, dest_path)
-            else:
-                with open(dest_path, "wb") as f:
-                    f.write(b"%PDF-1.4\n%PYQ Document\n%%EOF")
+            try:
+                os.makedirs(upload_dest_dir, exist_ok=True)
+                if os.path.exists(sample_src):
+                    shutil.copyfile(sample_src, dest_path)
+                else:
+                    with open(dest_path, "wb") as f:
+                        f.write(b"%PDF-1.4\n%PYQ Document\n%%EOF")
+            except Exception as e:
+                print(f"[seed] Notice creating upload sample for {sub.code}: {e}")
+                dest_path = f"/tmp/{doc_filename}"
 
             pyq_doc = models.PYQDocument(
                 subject_id=sub.id,
