@@ -65,10 +65,12 @@ export const api = {
   deleteBook: (subjectCode, filename) =>
     client.delete('/books/delete', { params: { subject_code: subjectCode, filename } }),
 
-  // User Authentication
+  // User Authentication & Audit Logs
   login: (data) => client.post('/auth/login', data),
   register: (data) => client.post('/auth/register', data),
   getCurrentUser: () => client.get('/auth/me'),
+  getLoginHistory: (limit = 50) => client.get('/auth/login-history', { params: { limit } }),
+  clearLoginHistory: () => client.delete('/auth/login-history'),
 
   // DSA & Campus Placement Mode
   getLeetCodeProfile: (username) => client.get(`/placement/leetcode/${username}`),

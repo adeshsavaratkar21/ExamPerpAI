@@ -4,15 +4,35 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from sqlalchemy import text
 from app.core.config import settings
 from app.db.database import engine, Base, SessionLocal
 from app.routers import pyq, quiz, notes, analytics, books, auth, placement
 
 
+def ensure_schema_migrations():
+    """Ensure newly added columns and tables are migrated without errors."""
+    try:
+        Base.metadata.create_all(bind=engine)
+        with engine.begin() as conn:
+            if engine.dialect.name == "sqlite":
+                res = conn.execute(text("PRAGMA table_info(users)")).fetchall()
+                existing_cols = [r[1] for r in res]
+                if existing_cols and "last_login" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN last_login DATETIME"))
+                    print("[ExamPrepAI] Migrated users table: added last_login column")
+    except Exception as err:
+        print(f"[ExamPrepAI] Migration notice: {err}")
+
+
+# Run migration at load time
+ensure_schema_migrations()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize DB schemas on startup
-    Base.metadata.create_all(bind=engine)
+    # Initialize DB schemas and migrations on startup
+    ensure_schema_migrations()
     
     # Auto-seed sample subjects on first launch if database is clean
     db = SessionLocal()
@@ -52,6 +72,11 @@ app.add_middleware(
 
 # Mount upload directory
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as e:
+    print(f"[ExamPrepAI] Metadata create warning: {e}")
+
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 
 # Include Routers

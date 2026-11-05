@@ -162,7 +162,7 @@ export default function LoginPage({ onLogin }) {
                 </div>
                 <div>
                   <span className="font-black text-base tracking-tight text-gray-900 block leading-tight">
-                    EXAM<span className="text-amber-500 font-extrabold ml-1">ACADEMY</span>
+                    EXAMPREP<span className="text-amber-500 font-extrabold ml-1">AI</span>
                   </span>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
                     Smart Study Suite
@@ -525,7 +525,7 @@ export default function LoginPage({ onLogin }) {
               </div>
               <div>
                 <h3 className="text-base font-extrabold">Student Password Help</h3>
-                <p className="text-xs text-gray-500">Exam Academy Credential Assistance</p>
+                <p className="text-xs text-gray-500">ExamPrepAI Credential Assistance</p>
               </div>
             </div>
 

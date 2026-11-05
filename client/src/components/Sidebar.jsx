@@ -46,7 +46,7 @@ export default function Sidebar({
           </div>
           <div>
             <span className="font-extrabold text-sm tracking-tight text-gray-900 block leading-tight">
-              EXAM<br /><span className="text-gray-950">ACADEMY</span>
+              EXAMPREP<br /><span className="text-gray-950">AI</span>
             </span>
           </div>
         </div>

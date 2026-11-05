@@ -168,3 +168,22 @@ class User(Base):
     program = Column(String(200), default="Semester 5 • Computer Engineering (SPIT)")
     avatar = Column(String(500), default="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80")
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    last_login = Column(DateTime, nullable=True)
+
+    login_history = relationship("UserLoginHistory", back_populates="user", cascade="all, delete-orphan")
+
+
+class UserLoginHistory(Base):
+    __tablename__ = "user_login_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    username = Column(String(100), nullable=False)
+    email = Column(String(255), nullable=True)
+    ip_address = Column(String(100), default="127.0.0.1")
+    user_agent = Column(String(500), default="Unknown")
+    device_info = Column(String(200), default="Unknown Device")
+    status = Column(String(100), default="SUCCESS")
+    login_time = Column(DateTime, default=datetime.datetime.utcnow)
+
+    user = relationship("User", back_populates="login_history")

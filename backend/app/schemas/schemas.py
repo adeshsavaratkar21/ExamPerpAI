@@ -304,6 +304,7 @@ class UserResponse(BaseModel):
     program: Optional[str] = None
     avatar: Optional[str] = None
     created_at: Optional[datetime] = None
+    last_login: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -314,3 +315,18 @@ class AuthResponse(BaseModel):
     message: str
     user: UserResponse
     token: Optional[str] = None
+
+
+class UserLoginHistoryResponse(BaseModel):
+    id: int
+    user_id: Optional[int] = None
+    username: str
+    email: Optional[str] = None
+    ip_address: Optional[str] = "127.0.0.1"
+    user_agent: Optional[str] = "Unknown"
+    device_info: Optional[str] = "Unknown Device"
+    status: str
+    login_time: datetime
+
+    class Config:
+        from_attributes = True
