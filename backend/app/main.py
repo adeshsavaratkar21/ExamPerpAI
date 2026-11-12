@@ -38,6 +38,10 @@ def ensure_schema_migrations():
                     if "file_size_formatted" not in pyq_cols:
                         conn.execute(text("ALTER TABLE pyq_documents ADD COLUMN file_size_formatted VARCHAR(50) DEFAULT '1.0 MB'"))
                     print("[ExamPrepAI] Migrated pyq_documents table: added file_data, user_id columns")
+
+                # Purge legacy pre-seeded sample PYQs so repository starts completely null for user uploads
+                conn.execute(text("DELETE FROM questions WHERE pyq_doc_id IN (SELECT id FROM pyq_documents WHERE file_data IS NULL)"))
+                conn.execute(text("DELETE FROM pyq_documents WHERE file_data IS NULL"))
     except Exception as err:
         print(f"[ExamPrepAI] Migration notice: {err}")
 
