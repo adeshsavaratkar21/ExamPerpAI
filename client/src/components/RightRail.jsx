@@ -56,7 +56,9 @@ export default function RightRail({
   // Persisted Upcoming Exams
   const [exams, setExams] = useState(() => {
     try {
-      const saved = localStorage.getItem('examprep_upcoming_exams');
+      const authUser = JSON.parse(localStorage.getItem('examprep_auth_user') || sessionStorage.getItem('examprep_auth_user') || '{}');
+      const userKey = authUser?.email ? `examprep_exams_${authUser.email}` : null;
+      const saved = (userKey && localStorage.getItem(userKey)) || localStorage.getItem('examprep_upcoming_exams');
       if (saved) return JSON.parse(saved);
     } catch (e) {
       console.error('Failed to load upcoming exams:', e);
@@ -64,14 +66,34 @@ export default function RightRail({
     return DEFAULT_EXAMS;
   });
 
+  // Listen for user login or progress restore
+  useEffect(() => {
+    const handleSyncExams = (e) => {
+      if (e.detail && Array.isArray(e.detail)) {
+        setExams(e.detail);
+      }
+    };
+    window.addEventListener('examprep_exams_synced', handleSyncExams);
+    return () => window.removeEventListener('examprep_exams_synced', handleSyncExams);
+  }, []);
+
   const handleSaveExams = (updatedExams) => {
     setExams(updatedExams);
-    localStorage.setItem('examprep_upcoming_exams', JSON.stringify(updatedExams));
+    try {
+      const authUser = JSON.parse(localStorage.getItem('examprep_auth_user') || sessionStorage.getItem('examprep_auth_user') || '{}');
+      if (authUser?.email) {
+        localStorage.setItem(`examprep_exams_${authUser.email}`, JSON.stringify(updatedExams));
+      }
+      localStorage.setItem('examprep_upcoming_exams', JSON.stringify(updatedExams));
+      window.dispatchEvent(new CustomEvent('examprep_exams_changed', { detail: updatedExams }));
+    } catch (err) {
+      console.error('Error saving exams:', err);
+    }
   };
 
   const handleResetDefaults = () => {
     setExams(DEFAULT_EXAMS);
-    localStorage.removeItem('examprep_upcoming_exams');
+    handleSaveExams(DEFAULT_EXAMS);
   };
 
   // Helper: calculate days left dynamically relative to today's midnight

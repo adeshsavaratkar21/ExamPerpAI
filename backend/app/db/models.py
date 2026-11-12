@@ -54,8 +54,11 @@ class PYQDocument(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     subject_id = Column(Integer, ForeignKey("subjects.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     filename = Column(String(255), nullable=False)
     file_path = Column(String(500), nullable=False)
+    file_data = Column(Text, nullable=True)  # Base64 encoded file data for durable serverless persistence
+    file_size_formatted = Column(String(50), default="1.0 MB")
     exam_year = Column(String(20), default="2024")
     exam_session = Column(String(100), default="End-Semester")
     total_questions_extracted = Column(Integer, default=0)
@@ -63,6 +66,7 @@ class PYQDocument(Base):
 
     subject = relationship("Subject", back_populates="pyq_documents")
     questions = relationship("Question", back_populates="pyq_document", cascade="all, delete-orphan")
+    user = relationship("User", back_populates="pyq_documents")
 
 
 class Question(Base):
@@ -167,10 +171,12 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     program = Column(String(200), default="Semester 5 • Computer Engineering (SPIT)")
     avatar = Column(String(500), default="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80")
+    progress_data = Column(Text, default="{}")  # JSON storage for tasks, upcoming_exams, completed_chapters, dsa
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     last_login = Column(DateTime, nullable=True)
 
     login_history = relationship("UserLoginHistory", back_populates="user", cascade="all, delete-orphan")
+    pyq_documents = relationship("PYQDocument", back_populates="user")
 
 
 class UserLoginHistory(Base):

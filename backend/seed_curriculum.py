@@ -693,36 +693,6 @@ def seed_database(db=None):
             db.add(sub)
             db.flush()
 
-            # Seed PYQDocument for this subject if sample exists
-            BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-            sample_src = os.path.join(BASE_DIR, "sample_docs", sub.code, f"{sub.code}_Endsem_2023.pdf")
-            upload_dest_dir = os.path.join(settings.UPLOAD_DIR, sub.code)
-            doc_filename = f"{sub.code}_Semester_5_PYQ_2023.pdf"
-            dest_path = os.path.join(upload_dest_dir, doc_filename)
-
-            try:
-                os.makedirs(upload_dest_dir, exist_ok=True)
-                if os.path.exists(sample_src):
-                    shutil.copyfile(sample_src, dest_path)
-                else:
-                    with open(dest_path, "wb") as f:
-                        f.write(b"%PDF-1.4\n%PYQ Document\n%%EOF")
-            except Exception as e:
-                print(f"[seed] Notice creating upload sample for {sub.code}: {e}")
-                dest_path = f"/tmp/{doc_filename}"
-
-            pyq_doc = models.PYQDocument(
-                subject_id=sub.id,
-                filename=doc_filename,
-                file_path=dest_path,
-                exam_year="2023",
-                exam_session="End-Semester Examination",
-                total_questions_extracted=len(s_info.get("pyqs", [])),
-                uploaded_at=now
-            )
-            db.add(pyq_doc)
-            db.flush()
-
             ch_map = {}
             created_chs = []
             for idx, c_info in enumerate(s_info["chapters"]):
@@ -755,23 +725,6 @@ def seed_database(db=None):
                 ch_map[ch_name] = ch.id
                 ch_map[raw_name] = ch.id
                 created_chs.append(ch)
-
-            # Add PYQs
-            for ch_name, q_text, q_type, q_marks, diff in s_info.get("pyqs", []):
-                target_ch_id = ch_map.get(ch_name, created_chs[0].id)
-                q = models.Question(
-                    subject_id=sub.id,
-                    chapter_id=target_ch_id,
-                    pyq_doc_id=pyq_doc.id,
-                    text=q_text,
-                    question_type=q_type,
-                    marks=q_marks,
-                    difficulty=diff,
-                    exam_year="2023",
-                    source_paper=f"{s_info['code']} End-Sem Exam",
-                    tags=json.dumps([s_info["code"].lower(), q_type.lower()])
-                )
-                db.add(q)
 
             # Pre-seed a completed quiz for Chapter 1
             ch1 = created_chs[0]

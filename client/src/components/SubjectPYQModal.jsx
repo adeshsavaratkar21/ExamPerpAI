@@ -175,10 +175,10 @@ export default function SubjectPYQModal({
                 <p className="text-xs font-bold">Scanning and loading authentic past papers for {subjectCode}...</p>
               </div>
             ) : filteredPapers.length === 0 ? (
-              <div className="p-8 text-center bg-white rounded-2xl border border-gray-200 text-gray-500">
+              <div className="p-10 text-center bg-white rounded-2xl border border-gray-200 text-gray-500">
                 <FileText className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                <p className="text-sm font-bold text-gray-800">No question papers matching this filter.</p>
-                <p className="text-xs text-gray-400 mt-1">Try resetting the search filter to see all papers.</p>
+                <p className="text-sm font-bold text-gray-800">No question papers uploaded yet for {subjectCode}.</p>
+                <p className="text-xs text-gray-400 mt-1">Upload your official past papers in the PYQ Papers section to access them here.</p>
               </div>
             ) : (
               filteredPapers.map((paper, idx) => {

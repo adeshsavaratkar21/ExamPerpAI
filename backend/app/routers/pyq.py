@@ -2,8 +2,9 @@ import os
 import re
 import shutil
 import json
+import base64
 from typing import List, Optional
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, Query
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.db import models
@@ -60,11 +61,20 @@ async def upload_pyq_document(
         chapter_names=chapter_names
     )
 
+    # Read bytes for base64 durable storage (persists across serverless container recycling)
+    with open(file_path, "rb") as f:
+        file_bytes = f.read()
+    b64_content = base64.b64encode(file_bytes).decode('utf-8')
+    size_mb = len(file_bytes) / (1024 * 1024)
+    size_formatted = f"{size_mb:.1f} MB" if size_mb >= 1.0 else f"{max(1, round(len(file_bytes) / 1024))} KB"
+
     # Create PYQDocument record
     pyq_doc = models.PYQDocument(
         subject_id=subject_id,
         filename=file.filename,
         file_path=file_path,
+        file_data=b64_content,
+        file_size_formatted=size_formatted,
         exam_year=exam_year,
         exam_session=exam_session,
         total_questions_extracted=len(extracted_questions_raw)
@@ -305,10 +315,50 @@ def parse_paper_metadata(filename: str, sub_code: str, file_path: str) -> dict:
     }
 
 
+@router.get("/documents/{doc_id}/view")
+def view_or_download_pyq(doc_id: int, db: Session = Depends(get_db)):
+    """
+    Serves the PDF for in-app preview or download, restoring file to disk if needed.
+    """
+    doc = db.query(models.PYQDocument).filter(models.PYQDocument.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="PYQ document not found")
+
+    content = None
+    if os.path.exists(doc.file_path):
+        try:
+            with open(doc.file_path, "rb") as f:
+                content = f.read()
+        except Exception:
+            pass
+
+    if not content and doc.file_data:
+        try:
+            content = base64.b64decode(doc.file_data)
+            # Recreate on disk for static serving
+            os.makedirs(os.path.dirname(doc.file_path), exist_ok=True)
+            with open(doc.file_path, "wb") as f:
+                f.write(content)
+        except Exception as e:
+            print(f"[restore paper error] {e}")
+
+    if not content:
+        raise HTTPException(status_code=404, detail="PDF content not available")
+
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="{doc.filename}"'
+        }
+    )
+
+
 @router.get("/subject-papers/{identifier}")
 def get_subject_papers(identifier: str, db: Session = Depends(get_db)):
     """
-    Returns all PYQ exam papers (PDFs/Images) uploaded for a specific subject (by code or ID).
+    Returns all authentic PYQ exam papers uploaded for a specific subject (by code or ID).
+    Driven by database records so uploaded papers persist permanently.
     """
     subject = None
     if identifier.isdigit():
@@ -316,43 +366,61 @@ def get_subject_papers(identifier: str, db: Session = Depends(get_db)):
     if not subject:
         subject = db.query(models.Subject).filter(models.Subject.code.ilike(identifier)).first()
 
-    sub_code = subject.code if subject else identifier.upper()
-    sub_dir = os.path.join(settings.UPLOAD_DIR, sub_code)
-
-    if not os.path.exists(sub_dir):
+    if not subject:
         return {
-            "subject_id": subject.id if subject else None,
-            "subject_code": sub_code,
-            "subject_name": subject.name if subject else sub_code,
+            "subject_id": None,
+            "subject_code": identifier.upper(),
+            "subject_name": identifier.upper(),
             "total_papers": 0,
             "papers": []
         }
 
-    raw_files = [
-        f for f in os.listdir(sub_dir)
-        if f.lower().endswith(('.pdf', '.jpg', '.jpeg', '.png'))
-    ]
+    sub_code = subject.code
+    docs = db.query(models.PYQDocument).filter(
+        models.PYQDocument.subject_id == subject.id
+    ).order_by(models.PYQDocument.uploaded_at.desc()).all()
 
     papers = []
-    for f in raw_files:
-        full_p = os.path.join(sub_dir, f)
-        meta = parse_paper_metadata(f, sub_code, full_p)
-        papers.append(meta)
+    for doc in docs:
+        # Restore to disk if needed
+        if doc.file_data and not os.path.exists(doc.file_path):
+            try:
+                os.makedirs(os.path.dirname(doc.file_path), exist_ok=True)
+                with open(doc.file_path, "wb") as f:
+                    f.write(base64.b64decode(doc.file_data))
+            except Exception as e:
+                print(f"[restore paper] {e}")
 
-    # Sort papers by year descending, then by month
-    def sort_key(p):
-        try:
-            yr = int(p["exam_year"])
-        except Exception:
-            yr = 2000
-        return yr
+        clean_upper = doc.filename.upper()
+        exam_tag = "ESE"
+        if "MID" in doc.exam_session.upper() or clean_upper.startswith("M"):
+            exam_tag = "MSE"
+        elif "KT" in doc.exam_session.upper() or "RE" in doc.exam_session.upper():
+            exam_tag = "KT"
 
-    papers.sort(key=sort_key, reverse=True)
+        papers.append({
+            "id": doc.id,
+            "filename": doc.filename,
+            "title": f"{sub_code} {doc.exam_session} — {doc.exam_year}",
+            "subject_code": sub_code,
+            "subject_id": subject.id,
+            "exam_type": doc.exam_session,
+            "exam_tag": exam_tag,
+            "exam_session": f"{doc.exam_session} {doc.exam_year}",
+            "exam_year": doc.exam_year,
+            "month": "",
+            "file_size": doc.file_size_formatted or "1.0 MB",
+            "file_url": f"/api/pyq/documents/{doc.id}/view",
+            "file_ext": ".pdf",
+            "is_pdf": True,
+            "total_questions": doc.total_questions_extracted,
+            "uploaded_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None
+        })
 
     return {
-        "subject_id": subject.id if subject else None,
+        "subject_id": subject.id,
         "subject_code": sub_code,
-        "subject_name": subject.name if subject else sub_code,
+        "subject_name": subject.name,
         "total_papers": len(papers),
         "papers": papers
     }
@@ -362,34 +430,59 @@ def get_subject_papers(identifier: str, db: Session = Depends(get_db)):
 def get_all_papers(db: Session = Depends(get_db)):
     """
     Returns all uploaded PYQ papers grouped across all active subjects.
+    Starts completely null until the user uploads papers.
     """
     subjects = db.query(models.Subject).order_by(models.Subject.id).all()
     grouped = {}
     total_count = 0
 
     for sub in subjects:
-        sub_code = sub.code
-        sub_dir = os.path.join(settings.UPLOAD_DIR, sub_code)
-        papers = []
-        if os.path.exists(sub_dir):
-            for f in os.listdir(sub_dir):
-                if f.lower().endswith(('.pdf', '.jpg', '.jpeg', '.png')):
-                    full_p = os.path.join(sub_dir, f)
-                    papers.append(parse_paper_metadata(f, sub_code, full_p))
+        docs = db.query(models.PYQDocument).filter(
+            models.PYQDocument.subject_id == sub.id
+        ).order_by(models.PYQDocument.uploaded_at.desc()).all()
 
-            def sort_key(p):
+        papers = []
+        for doc in docs:
+            # Restore to disk if needed
+            if doc.file_data and not os.path.exists(doc.file_path):
                 try:
-                    yr = int(p["exam_year"])
-                except Exception:
-                    yr = 2000
-                return yr
-            papers.sort(key=sort_key, reverse=True)
+                    os.makedirs(os.path.dirname(doc.file_path), exist_ok=True)
+                    with open(doc.file_path, "wb") as f:
+                        f.write(base64.b64decode(doc.file_data))
+                except Exception as e:
+                    print(f"[restore paper] {e}")
+
+            clean_upper = doc.filename.upper()
+            exam_tag = "ESE"
+            if "MID" in doc.exam_session.upper() or clean_upper.startswith("M"):
+                exam_tag = "MSE"
+            elif "KT" in doc.exam_session.upper() or "RE" in doc.exam_session.upper():
+                exam_tag = "KT"
+
+            papers.append({
+                "id": doc.id,
+                "filename": doc.filename,
+                "title": f"{sub.code} {doc.exam_session} — {doc.exam_year}",
+                "subject_code": sub.code,
+                "subject_id": sub.id,
+                "exam_type": doc.exam_session,
+                "exam_tag": exam_tag,
+                "exam_session": f"{doc.exam_session} {doc.exam_year}",
+                "exam_year": doc.exam_year,
+                "month": "",
+                "file_size": doc.file_size_formatted or "1.0 MB",
+                "file_url": f"/api/pyq/documents/{doc.id}/view",
+                "file_ext": ".pdf",
+                "is_pdf": True,
+                "total_questions": doc.total_questions_extracted,
+                "uploaded_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None
+            })
 
         total_count += len(papers)
-        grouped[sub_code] = {
+        grouped[sub.code] = {
             "subject_id": sub.id,
             "subject_name": sub.name,
-            "subject_code": sub_code,
+            "subject_code": sub.code,
             "course_code": sub.course_code,
             "count": len(papers),
             "papers": papers

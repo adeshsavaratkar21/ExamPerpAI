@@ -119,7 +119,7 @@ export default function ProfileModal({
     setCustomUrl('');
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     if (!name.trim()) {
       setErrorMessage('Please enter your full name.');
@@ -132,6 +132,18 @@ export default function ProfileModal({
       program: program.trim() || 'Semester 5 • Engineering',
       avatar: avatar
     };
+
+    // Save to backend database so profile edits are permanently saved across sessions
+    try {
+      await api.updateProfile({
+        username: updated.name,
+        email: updated.email,
+        program: updated.program,
+        avatar: updated.avatar
+      });
+    } catch (err) {
+      console.warn('Backend profile update note:', err);
+    }
 
     onSaveProfile(updated);
     setSavedSuccess(true);

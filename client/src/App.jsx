@@ -59,6 +59,76 @@ export default function App() {
   const handleSaveProfile = (updatedProfile) => {
     setStudentProfile(updatedProfile);
     localStorage.setItem('examprep_student_profile', JSON.stringify(updatedProfile));
+    if (currentUser?.email) {
+      localStorage.setItem(`examprep_profile_${currentUser.email}`, JSON.stringify(updatedProfile));
+      api.updateProfile({
+        username: updatedProfile.name,
+        email: currentUser.email,
+        program: updatedProfile.program,
+        avatar: updatedProfile.avatar
+      }).catch(() => {});
+    }
+  };
+
+  const restoreUserProgress = async (user) => {
+    if (!user || !user.email) return;
+    try {
+      // 1. Fetch saved progress from backend
+      const res = await api.getUserProgress(user.email);
+      const backendProgress = res.data?.progress || {};
+
+      // 2. Also check local storage for user-scoped data
+      const localTasks = JSON.parse(localStorage.getItem(`examprep_tasks_${user.email}`) || 'null');
+      const localExams = JSON.parse(localStorage.getItem(`examprep_exams_${user.email}`) || 'null');
+      const localProfile = JSON.parse(localStorage.getItem(`examprep_profile_${user.email}`) || 'null');
+
+      // Tasks: backend takes precedence if non-empty, otherwise local
+      const effectiveTasks = (backendProgress.tasks && backendProgress.tasks.length > 0)
+        ? backendProgress.tasks
+        : (localTasks || null);
+
+      if (effectiveTasks) {
+        localStorage.setItem(`examprep_tasks_${user.email}`, JSON.stringify(effectiveTasks));
+        localStorage.setItem('examprep_daily_tasks', JSON.stringify(effectiveTasks));
+        window.dispatchEvent(new CustomEvent('examprep_tasks_synced', { detail: effectiveTasks }));
+      }
+
+      // Exams: backend takes precedence if non-empty, otherwise local
+      const effectiveExams = (backendProgress.upcoming_exams && backendProgress.upcoming_exams.length > 0)
+        ? backendProgress.upcoming_exams
+        : (localExams || null);
+
+      if (effectiveExams) {
+        localStorage.setItem(`examprep_exams_${user.email}`, JSON.stringify(effectiveExams));
+        localStorage.setItem('examprep_upcoming_exams', JSON.stringify(effectiveExams));
+        window.dispatchEvent(new CustomEvent('examprep_exams_synced', { detail: effectiveExams }));
+      }
+
+      // Profile
+      const effectiveProfile = {
+        name: user.username || backendProgress.profile?.name || localProfile?.name || studentProfile.name,
+        email: user.email,
+        program: user.program || backendProgress.profile?.program || localProfile?.program || studentProfile.program,
+        avatar: user.avatar || backendProgress.profile?.avatar || localProfile?.avatar || studentProfile.avatar
+      };
+      setStudentProfile(effectiveProfile);
+      localStorage.setItem('examprep_student_profile', JSON.stringify(effectiveProfile));
+      localStorage.setItem(`examprep_profile_${user.email}`, JSON.stringify(effectiveProfile));
+
+      // Synchronize latest state back to backend if backend was empty
+      if (!backendProgress.tasks && effectiveTasks) {
+        api.saveUserProgress({
+          email: user.email,
+          progress: {
+            tasks: effectiveTasks,
+            upcoming_exams: effectiveExams,
+            profile: effectiveProfile
+          }
+        }).catch(() => {});
+      }
+    } catch (err) {
+      console.error('Failed to restore user progress:', err);
+    }
   };
 
   // Fetch subjects and API status on launch
@@ -93,7 +163,45 @@ export default function App() {
 
   useEffect(() => {
     loadInitialData();
+    if (currentUser) {
+      restoreUserProgress(currentUser);
+    }
   }, []);
+
+  // Sync user progress changes to backend
+  useEffect(() => {
+    if (!currentUser?.email) return;
+
+    const handleTasksChanged = (e) => {
+      const tasks = e.detail;
+      api.getUserProgress(currentUser.email).then(res => {
+        const currentProgress = res.data?.progress || {};
+        api.saveUserProgress({
+          email: currentUser.email,
+          progress: { ...currentProgress, tasks }
+        }).catch(() => {});
+      }).catch(() => {});
+    };
+
+    const handleExamsChanged = (e) => {
+      const upcoming_exams = e.detail;
+      api.getUserProgress(currentUser.email).then(res => {
+        const currentProgress = res.data?.progress || {};
+        api.saveUserProgress({
+          email: currentUser.email,
+          progress: { ...currentProgress, upcoming_exams }
+        }).catch(() => {});
+      }).catch(() => {});
+    };
+
+    window.addEventListener('examprep_tasks_changed', handleTasksChanged);
+    window.addEventListener('examprep_exams_changed', handleExamsChanged);
+
+    return () => {
+      window.removeEventListener('examprep_tasks_changed', handleTasksChanged);
+      window.removeEventListener('examprep_exams_changed', handleExamsChanged);
+    };
+  }, [currentUser]);
 
   const handleLoginSuccess = (user, rememberMe = true) => {
     setCurrentUser(user);
@@ -103,16 +211,7 @@ export default function App() {
       sessionStorage.setItem('examprep_auth_user', JSON.stringify(user));
     }
 
-    const updatedProfile = {
-      ...studentProfile,
-      name: user.username || studentProfile.name,
-      email: user.email || studentProfile.email,
-      program: user.program || studentProfile.program,
-      avatar: user.avatar || studentProfile.avatar
-    };
-    setStudentProfile(updatedProfile);
-    localStorage.setItem('examprep_student_profile', JSON.stringify(updatedProfile));
-
+    restoreUserProgress(user);
     loadInitialData();
   };
 

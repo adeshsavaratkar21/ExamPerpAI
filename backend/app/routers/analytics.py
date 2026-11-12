@@ -34,12 +34,8 @@ def get_subjects(db: Session = Depends(get_db)):
     for s in subjects:
         ch_count = len(s.chapters)
         
-        # Calculate real uploaded papers count from disk
-        sub_dir = os.path.join(settings.UPLOAD_DIR, s.code)
-        disk_count = 0
-        if os.path.exists(sub_dir):
-            disk_count = len([f for f in os.listdir(sub_dir) if f.lower().endswith(('.pdf', '.jpg', '.jpeg', '.png'))])
-        pyq_count = max(len(s.pyq_documents), disk_count)
+        # Calculate real uploaded papers count from database records
+        pyq_count = len(s.pyq_documents)
         
         # Calculate subject readiness
         report = analytics_service.get_subject_readiness_report(db, s.id)

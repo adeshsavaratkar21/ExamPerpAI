@@ -69,6 +69,9 @@ export const api = {
   login: (data) => client.post('/auth/login', data),
   register: (data) => client.post('/auth/register', data),
   getCurrentUser: () => client.get('/auth/me'),
+  updateProfile: (data) => client.put('/auth/profile', data),
+  getUserProgress: (email) => client.get('/auth/progress', { params: { email } }),
+  saveUserProgress: (data) => client.put('/auth/progress', data),
   getLoginHistory: (limit = 50) => client.get('/auth/login-history', { params: { limit } }),
   clearLoginHistory: () => client.delete('/auth/login-history'),
 

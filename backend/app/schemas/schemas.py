@@ -305,9 +305,22 @@ class UserResponse(BaseModel):
     avatar: Optional[str] = None
     created_at: Optional[datetime] = None
     last_login: Optional[datetime] = None
+    progress_data: Optional[str] = "{}"
 
     class Config:
         from_attributes = True
+
+
+class UpdateProfileRequest(BaseModel):
+    username: Optional[str] = None
+    email: Optional[str] = None
+    program: Optional[str] = None
+    avatar: Optional[str] = None
+
+
+class UserProgressPayload(BaseModel):
+    email: Optional[str] = None
+    progress: Dict[str, Any]
 
 
 class AuthResponse(BaseModel):

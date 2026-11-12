@@ -12,7 +12,9 @@ const DEFAULT_TASKS = [
 export default function SidebarTodoList() {
   const [tasks, setTasks] = useState(() => {
     try {
-      const saved = localStorage.getItem('examprep_daily_tasks');
+      const authUser = JSON.parse(localStorage.getItem('examprep_auth_user') || sessionStorage.getItem('examprep_auth_user') || '{}');
+      const userKey = authUser?.email ? `examprep_tasks_${authUser.email}` : null;
+      const saved = (userKey && localStorage.getItem(userKey)) || localStorage.getItem('examprep_daily_tasks');
       if (saved) return JSON.parse(saved);
     } catch (e) {
       console.error('Failed to load daily tasks:', e);
@@ -22,6 +24,30 @@ export default function SidebarTodoList() {
 
   const [newTaskText, setNewTaskText] = useState('');
   const [newTaskSubject, setNewTaskSubject] = useState('DC');
+
+  // Listen for user login or progress restore
+  useEffect(() => {
+    const handleSyncTasks = (e) => {
+      if (e.detail && Array.isArray(e.detail)) {
+        setTasks(e.detail);
+      }
+    };
+    window.addEventListener('examprep_tasks_synced', handleSyncTasks);
+    return () => window.removeEventListener('examprep_tasks_synced', handleSyncTasks);
+  }, []);
+
+  const saveTasksEverywhere = (nextTasks) => {
+    try {
+      const authUser = JSON.parse(localStorage.getItem('examprep_auth_user') || sessionStorage.getItem('examprep_auth_user') || '{}');
+      if (authUser?.email) {
+        localStorage.setItem(`examprep_tasks_${authUser.email}`, JSON.stringify(nextTasks));
+      }
+      localStorage.setItem('examprep_daily_tasks', JSON.stringify(nextTasks));
+      window.dispatchEvent(new CustomEvent('examprep_tasks_changed', { detail: nextTasks }));
+    } catch (err) {
+      console.error('Error saving tasks:', err);
+    }
+  };
 
   const handleToggleTask = (taskId) => {
     setTasks((prev) => {
@@ -34,7 +60,7 @@ export default function SidebarTodoList() {
           origin: { y: 0.6 }
         });
       }
-      localStorage.setItem('examprep_daily_tasks', JSON.stringify(next));
+      saveTasksEverywhere(next);
       return next;
     });
   };
@@ -52,14 +78,14 @@ export default function SidebarTodoList() {
 
     const next = [newTask, ...tasks];
     setTasks(next);
-    localStorage.setItem('examprep_daily_tasks', JSON.stringify(next));
+    saveTasksEverywhere(next);
     setNewTaskText('');
   };
 
   const handleDeleteTask = (taskId) => {
     const next = tasks.filter((t) => t.id !== taskId);
     setTasks(next);
-    localStorage.setItem('examprep_daily_tasks', JSON.stringify(next));
+    saveTasksEverywhere(next);
   };
 
   const completedCount = tasks.filter((t) => t.completed).length;

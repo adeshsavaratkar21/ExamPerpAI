@@ -244,9 +244,82 @@ def get_current_user(db: Session = Depends(get_db)):
             program="Semester 5 • Computer Engineering (SPIT)",
             avatar="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
             created_at=now,
-            last_login=now
+            last_login=now,
+            progress_data="{}"
         )
         db.add(user)
         db.commit()
         db.refresh(user)
     return user
+
+
+@router.put("/profile", response_model=schemas.UserResponse)
+def update_user_profile(req: schemas.UpdateProfileRequest, db: Session = Depends(get_db)):
+    """Updates user profile information (name, program, avatar, email) permanently."""
+    user = None
+    if req.email:
+        user = db.query(models.User).filter(models.User.email.ilike(req.email.strip())).first()
+    if not user and req.username:
+        user = db.query(models.User).filter(models.User.username.ilike(req.username.strip())).first()
+    if not user:
+        user = db.query(models.User).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if req.username and req.username.strip():
+        user.username = req.username.strip()
+    if req.program and req.program.strip():
+        user.program = req.program.strip()
+    if req.avatar and req.avatar.strip():
+        user.avatar = req.avatar.strip()
+
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.get("/progress")
+def get_user_progress(email: Optional[str] = None, db: Session = Depends(get_db)):
+    """Fetches user progress (tasks, upcoming exams, completed chapters, dsa)."""
+    import json
+    user = None
+    if email:
+        user = db.query(models.User).filter(models.User.email.ilike(email.strip())).first()
+    if not user:
+        user = db.query(models.User).first()
+
+    if not user:
+        return {"success": False, "progress": {}}
+
+    progress = {}
+    if user.progress_data:
+        try:
+            progress = json.loads(user.progress_data)
+        except Exception:
+            progress = {}
+
+    return {
+        "success": True,
+        "email": user.email,
+        "username": user.username,
+        "progress": progress
+    }
+
+
+@router.put("/progress")
+def save_user_progress(payload: schemas.UserProgressPayload, db: Session = Depends(get_db)):
+    """Saves user progress so it persists across logouts and logins."""
+    import json
+    user = None
+    if payload.email:
+        user = db.query(models.User).filter(models.User.email.ilike(payload.email.strip())).first()
+    if not user:
+        user = db.query(models.User).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.progress_data = json.dumps(payload.progress)
+    db.commit()
+    return {"success": True, "message": "User progress successfully saved."}

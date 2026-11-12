@@ -16,11 +16,28 @@ def ensure_schema_migrations():
         Base.metadata.create_all(bind=engine)
         with engine.begin() as conn:
             if engine.dialect.name == "sqlite":
+                # Check users table
                 res = conn.execute(text("PRAGMA table_info(users)")).fetchall()
-                existing_cols = [r[1] for r in res]
-                if existing_cols and "last_login" not in existing_cols:
-                    conn.execute(text("ALTER TABLE users ADD COLUMN last_login DATETIME"))
-                    print("[ExamPrepAI] Migrated users table: added last_login column")
+                user_cols = [r[1] for r in res]
+                if user_cols:
+                    if "last_login" not in user_cols:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN last_login DATETIME"))
+                        print("[ExamPrepAI] Migrated users table: added last_login column")
+                    if "progress_data" not in user_cols:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN progress_data TEXT DEFAULT '{}'"))
+                        print("[ExamPrepAI] Migrated users table: added progress_data column")
+
+                # Check pyq_documents table
+                res_pyq = conn.execute(text("PRAGMA table_info(pyq_documents)")).fetchall()
+                pyq_cols = [r[1] for r in res_pyq]
+                if pyq_cols:
+                    if "user_id" not in pyq_cols:
+                        conn.execute(text("ALTER TABLE pyq_documents ADD COLUMN user_id INTEGER"))
+                    if "file_data" not in pyq_cols:
+                        conn.execute(text("ALTER TABLE pyq_documents ADD COLUMN file_data TEXT"))
+                    if "file_size_formatted" not in pyq_cols:
+                        conn.execute(text("ALTER TABLE pyq_documents ADD COLUMN file_size_formatted VARCHAR(50) DEFAULT '1.0 MB'"))
+                    print("[ExamPrepAI] Migrated pyq_documents table: added file_data, user_id columns")
     except Exception as err:
         print(f"[ExamPrepAI] Migration notice: {err}")
 

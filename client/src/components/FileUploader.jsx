@@ -15,7 +15,8 @@ import {
   Sparkles,
   BookOpen,
   Layers,
-  Filter
+  Filter,
+  Trash2
 } from 'lucide-react';
 import api from '../services/api';
 import PdfViewerModal from './PdfViewerModal';
@@ -36,7 +37,7 @@ export default function FileUploader({
   const [previewPaper, setPreviewPaper] = useState(null);
 
   // Upload state
-  const [showUploadZone, setShowUploadZone] = useState(false);
+  const [showUploadZone, setShowUploadZone] = useState(true);
   const [file, setFile] = useState(null);
   const [uploadSubjectId, setUploadSubjectId] = useState(selectedSubjectId || (subjects[0]?.id || 1));
   const [examYear, setExamYear] = useState('2024');
@@ -140,6 +141,18 @@ export default function FileUploader({
       setErrorMsg(err.response?.data?.detail || 'Failed to parse PDF document.');
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleDeletePaper = async (paperId) => {
+    if (!paperId) return;
+    if (!window.confirm('Are you sure you want to delete this question paper?')) return;
+    try {
+      await api.deletePYQDocument(paperId);
+      loadPapers();
+    } catch (err) {
+      console.error('Failed to delete paper:', err);
+      alert('Could not delete paper: ' + (err.response?.data?.detail || err.message));
     }
   };
 
@@ -309,10 +322,23 @@ export default function FileUploader({
             <p className="text-xs font-bold">Scanning uploaded paper repository...</p>
           </div>
         ) : currentPapers.length === 0 ? (
-          <div className="p-8 text-center bg-[#F8F9FC] rounded-2xl border border-gray-200 text-gray-500">
-            <FileText className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-            <p className="text-sm font-bold text-gray-800">No question papers matching this filter.</p>
-            <p className="text-xs text-gray-400 mt-1">Try resetting the search filter or upload a new paper.</p>
+          <div className="p-10 text-center bg-[#F8F9FC] rounded-3xl border-2 border-dashed border-gray-200">
+            <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-white border border-gray-200 flex items-center justify-center text-amber-500 shadow-xs">
+              <FileText className="w-7 h-7 text-amber-500" />
+            </div>
+            <h3 className="text-base font-extrabold text-gray-900">
+              No Question Papers Uploaded for {activeSubCode}
+            </h3>
+            <p className="text-xs text-gray-400 mt-1 max-w-md mx-auto">
+              Your PYQ repository is currently clean. Upload your official university exam question papers below to extract questions and build your authentic past paper bank.
+            </p>
+            <button
+              onClick={() => setShowUploadZone(true)}
+              className="mt-4 px-5 py-2.5 rounded-2xl bg-gray-950 text-white text-xs font-black hover:bg-black transition-all shadow-sm inline-flex items-center gap-2"
+            >
+              <UploadCloud className="w-4 h-4 text-accentYellow" />
+              <span>Upload PYQ Paper Now</span>
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -378,6 +404,16 @@ export default function FileUploader({
                       >
                         <Download className="w-3.5 h-3.5" />
                       </a>
+
+                      {paper.id && (
+                        <button
+                          onClick={() => handleDeletePaper(paper.id)}
+                          className="w-7 h-7 rounded-lg bg-gray-50 hover:bg-rose-50 hover:text-rose-600 flex items-center justify-center text-gray-400 transition-colors"
+                          title="Delete this paper"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
