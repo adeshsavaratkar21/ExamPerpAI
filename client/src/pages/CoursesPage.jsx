@@ -28,7 +28,8 @@ export default function CoursesPage({
   onViewNotesForChapter,
   onNavigateTab
 }) {
-  const [activeFolderId, setActiveFolderId] = useState(selectedSubjectId || (subjects.length > 0 ? subjects[0].id : null));
+  const subjectsArray = Array.isArray(subjects) ? subjects : [];
+  const [activeFolderId, setActiveFolderId] = useState(selectedSubjectId || (subjectsArray.length > 0 ? subjectsArray[0].id : null));
   const [isPYQModalOpen, setIsPYQModalOpen] = useState(false);
   const [isBooksModalOpen, setIsBooksModalOpen] = useState(false);
   const [courseFilter, setCourseFilter] = useState('All');
@@ -71,7 +72,7 @@ export default function CoursesPage({
       .finally(() => setLoadingDetail(false));
   }, [activeFolderId]);
 
-  const filteredSubjects = subjects.filter(s => {
+  const filteredSubjects = subjectsArray.filter(s => {
     const matchesFilter = 
       courseFilter === 'All' ? true :
       courseFilter === 'Active' ? (s.overall_readiness || 0) < 80 :

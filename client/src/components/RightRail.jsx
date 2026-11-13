@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Edit3, 
   ChevronLeft, 
@@ -25,6 +25,7 @@ export default function RightRail({
   onNavigateTab
 }) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const subjectsArray = Array.isArray(subjects) ? subjects : [];
 
   // Dynamic Current Date Anchor (Fixed to real current date)
   const today = new Date();
@@ -240,7 +241,7 @@ export default function RightRail({
         ) : (
           <div className="space-y-2">
             {upcomingExams.map((exam) => {
-              const matchedSub = subjects.find((s) => s.code === exam.subjectCode);
+              const matchedSub = subjectsArray.find((s) => s.code === exam.subjectCode);
               const subId = matchedSub?.id;
               const isSelected = selectedSubjectId && subId === Number(selectedSubjectId);
               const daysLeft = exam.daysLeft;
@@ -356,7 +357,7 @@ export default function RightRail({
 
           <div className="space-y-1.5">
             {noExamSubjects.map((sub) => {
-              const matchedSub = subjects.find((s) => s.code === sub.subjectCode);
+              const matchedSub = subjectsArray.find((s) => s.code === sub.subjectCode);
               const subId = matchedSub?.id;
               const isSelected = selectedSubjectId && subId === Number(selectedSubjectId);
 

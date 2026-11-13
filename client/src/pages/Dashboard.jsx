@@ -34,7 +34,8 @@ export default function Dashboard({
   const [readinessData, setReadinessData] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const currentSubject = subjects.find(s => s.id === Number(selectedSubjectId)) || subjects[0];
+  const subjectsArray = Array.isArray(subjects) ? subjects : [];
+  const currentSubject = subjectsArray.find(s => s.id === Number(selectedSubjectId)) || subjectsArray[0];
 
   useEffect(() => {
     if (!selectedSubjectId) return;

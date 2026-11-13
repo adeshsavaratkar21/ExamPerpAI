@@ -21,8 +21,8 @@ export default function NotesPage({
   const [isBooksModalOpen, setIsBooksModalOpen] = useState(false);
 
   // Derive names from state
-  const subject = subjects?.find(s => String(s.id) === String(selectedSubjectId));
-  const currentChapter = chapters.find(c => c.id === Number(selectedChapterId));
+  const subject = Array.isArray(subjects) ? subjects.find(s => String(s.id) === String(selectedSubjectId)) : null;
+  const currentChapter = Array.isArray(chapters) ? chapters.find(c => c.id === Number(selectedChapterId)) : null;
 
   /* ── Load chapters on subject change ── */
   useEffect(() => {

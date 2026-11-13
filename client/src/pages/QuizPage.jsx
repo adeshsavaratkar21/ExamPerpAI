@@ -73,7 +73,7 @@ export default function QuizPage({
     }
   };
 
-  const currentChapter = chapters.find(c => c.id === Number(selectedChapterId));
+  const currentChapter = Array.isArray(chapters) ? chapters.find(c => c.id === Number(selectedChapterId)) : null;
 
   return (
     <div className="space-y-6">

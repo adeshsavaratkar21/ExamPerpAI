@@ -75,7 +75,7 @@ export default function FileUploader({
 
   // Update active subject when selectedSubjectId changes
   useEffect(() => {
-    if (selectedSubjectId && subjects.length > 0) {
+    if (selectedSubjectId && Array.isArray(subjects) && subjects.length > 0) {
       const match = subjects.find(s => s.id === Number(selectedSubjectId));
       if (match?.code) {
         setActiveSubCode(match.code);

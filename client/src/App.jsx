@@ -141,7 +141,7 @@ export default function App() {
         api.getApiStatus()
       ]);
 
-      const subList = subjectsRes.data || [];
+      const subList = Array.isArray(subjectsRes.data) ? subjectsRes.data : [];
       setSubjects(subList);
       if (subList.length > 0) {
         setSelectedSubjectId(prev => prev || subList[0].id);
@@ -231,7 +231,8 @@ export default function App() {
     setCurrentTab('notes');
   };
 
-  const currentSubject = subjects.find(s => s.id === Number(selectedSubjectId)) || subjects[0];
+  const subjectsList = Array.isArray(subjects) ? subjects : [];
+  const currentSubject = subjectsList.find(s => s.id === Number(selectedSubjectId)) || subjectsList[0];
 
   // If user is not authenticated, display the dedicated Login Page
   if (!currentUser) {

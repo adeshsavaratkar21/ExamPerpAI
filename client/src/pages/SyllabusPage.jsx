@@ -24,7 +24,8 @@ export default function SyllabusPage({
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(true);
 
-  const currentSubject = subjects.find(s => s.id === Number(selectedSubjectId)) || subjects[0];
+  const subjectsArray = Array.isArray(subjects) ? subjects : [];
+  const currentSubject = subjectsArray.find(s => s.id === Number(selectedSubjectId)) || subjectsArray[0];
 
   const loadData = async () => {
     if (!selectedSubjectId) return;
