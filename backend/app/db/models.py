@@ -45,6 +45,7 @@ class Chapter(Base):
     pyq_done = Column(Boolean, default=False)
     quiz_done = Column(Boolean, default=False)
     reference_materials = Column(Text, default="[]")
+    watched_videos = Column(Text, default="[]")
     completed_at = Column(DateTime, nullable=True)
 
     subject = relationship("Subject", back_populates="chapters")

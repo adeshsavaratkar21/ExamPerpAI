@@ -364,7 +364,8 @@ def update_chapter_progress(
 @router.get("/syllabus/chapter/{chapter_id}/youtube-lectures")
 def get_chapter_youtube_lectures(chapter_id: int, db: Session = Depends(get_db)):
     """
-    Fetches curated, syllabus-scoped educational YouTube lectures for a specific module/unit.
+    Fetches both Complete Syllabus Full Playlists and Unit Topic Lectures
+    with individual video watch tracking and verified playback options.
     """
     ch = db.query(models.Chapter).filter(models.Chapter.id == chapter_id).first()
     if not ch:
@@ -382,12 +383,25 @@ def get_chapter_youtube_lectures(chapter_id: int, db: Session = Depends(get_db))
         except Exception:
             parsed_topics = [t.strip() for t in str(ch.topics).split(",") if t.strip()]
 
-    lectures = youtube_service.get_lectures_for_chapter(
+    data = youtube_service.get_lectures_for_chapter(
         subject_code=subject_code,
         unit_number=ch.unit_number,
         chapter_name=ch.name,
         topics=parsed_topics
     )
+
+    watched = []
+    if ch.watched_videos:
+        try:
+            watched = json.loads(ch.watched_videos)
+            if not isinstance(watched, list):
+                watched = []
+        except Exception:
+            watched = []
+
+    unit_lectures = data.get("unit_lectures", [])
+    subject_playlists = data.get("subject_playlists", [])
+    active_playlist = data.get("active_playlist")
 
     steps_done = sum([1 for flag in [ch.video_done, ch.notes_done, ch.pyq_done, ch.quiz_done] if flag])
 
@@ -398,10 +412,76 @@ def get_chapter_youtube_lectures(chapter_id: int, db: Session = Depends(get_db))
         "subject_code": subject_code,
         "subject_name": subject.name if subject else "",
         "video_done": bool(ch.video_done),
+        "watched_videos": watched,
+        "watched_count": len(watched),
+        "total_unit_lectures": len(unit_lectures),
         "steps_done": steps_done,
         "total_steps": 4,
         "is_completed": bool(ch.is_completed),
-        "lectures": lectures
+        "subject_playlists": subject_playlists,
+        "active_playlist": active_playlist,
+        "unit_lectures": unit_lectures,
+        "lectures": unit_lectures
+    }
+
+
+@router.post("/syllabus/chapter/{chapter_id}/video-progress")
+def update_chapter_video_progress(
+    chapter_id: int,
+    payload: schemas.VideoProgressUpdate,
+    db: Session = Depends(get_db)
+):
+    """
+    Tracks individual video completion in a unit's syllabus playlist.
+    Auto-updates Step 1/4 (video_done) and recalculates readiness.
+    """
+    ch = db.query(models.Chapter).filter(models.Chapter.id == chapter_id).first()
+    if not ch:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+
+    watched = []
+    if ch.watched_videos:
+        try:
+            watched = json.loads(ch.watched_videos)
+            if not isinstance(watched, list):
+                watched = []
+        except Exception:
+            watched = []
+
+    if payload.watched and payload.video_id not in watched:
+        watched.append(payload.video_id)
+    elif not payload.watched and payload.video_id in watched:
+        watched.remove(payload.video_id)
+
+    ch.watched_videos = json.dumps(watched)
+
+    # If at least 1 video is marked watched, mark video_done=True
+    if len(watched) > 0:
+        ch.video_done = True
+    else:
+        ch.video_done = False
+
+    is_all_done = bool(ch.video_done and ch.notes_done and ch.pyq_done and ch.quiz_done)
+    ch.is_completed = is_all_done
+    if is_all_done and not ch.completed_at:
+        ch.completed_at = datetime.datetime.utcnow()
+    elif not is_all_done:
+        ch.completed_at = None
+
+    updated_metrics = analytics_service.calculate_chapter_metrics(db, chapter_id)
+    db.commit()
+
+    return {
+        "chapter_id": ch.id,
+        "video_id": payload.video_id,
+        "watched": payload.watched,
+        "watched_videos": watched,
+        "watched_count": len(watched),
+        "video_done": bool(ch.video_done),
+        "is_completed": bool(ch.is_completed),
+        "steps_done": sum([1 for f in [ch.video_done, ch.notes_done, ch.pyq_done, ch.quiz_done] if f]),
+        "total_steps": 4,
+        "readiness_index": updated_metrics["readiness_index"]
     }
 
 

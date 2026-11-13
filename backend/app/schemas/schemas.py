@@ -19,6 +19,7 @@ class ChapterBase(BaseModel):
     pyq_done: Optional[bool] = False
     quiz_done: Optional[bool] = False
     reference_materials: Optional[Any] = []
+    watched_videos: Optional[Any] = []
 
 
 class ChapterCreate(ChapterBase):
@@ -30,6 +31,12 @@ class ChapterProgressUpdate(BaseModel):
     notes_done: Optional[bool] = None
     pyq_done: Optional[bool] = None
     quiz_done: Optional[bool] = None
+    watched_videos: Optional[List[str]] = None
+
+
+class VideoProgressUpdate(BaseModel):
+    video_id: str
+    watched: bool
 
 
 class ChapterUpdate(BaseModel):

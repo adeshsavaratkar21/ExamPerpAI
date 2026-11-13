@@ -159,20 +159,31 @@ export default function CoursesPage({
           </div>
 
           {/* Quick Action Buttons */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => {
+                const firstCh = chapters[0] || { id: 1, name: subjectDetail.name, unit_number: 1 };
+                setYoutubeModalChapter(firstCh);
+              }}
+              className="px-3.5 py-2 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-black text-xs shadow-sm transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5 cursor-pointer"
+              title="Official Full-Syllabus Video Playlist"
+            >
+              <Tv className="w-3.5 h-3.5 text-white" />
+              <span>Full Course Playlist</span>
+            </button>
             <button
               onClick={() => {
                 if (setSelectedSubjectId) setSelectedSubjectId(activeFolderId);
                 onNavigateTab('readiness');
               }}
-              className="px-4 py-2 rounded-2xl bg-white border border-gray-200/90 text-gray-700 font-bold text-xs hover:bg-gray-50 shadow-2xs transition-colors flex items-center gap-1.5"
+              className="px-3.5 py-2 rounded-2xl bg-white border border-gray-200/90 text-gray-700 font-bold text-xs hover:bg-gray-50 shadow-2xs transition-colors flex items-center gap-1.5"
             >
               <Target className="w-3.5 h-3.5 text-indigo-600" />
               Readiness Matrix
             </button>
             <button
               onClick={() => setIsBooksModalOpen(true)}
-              className="px-4 py-2 rounded-2xl bg-amber-400 text-gray-950 font-black text-xs hover:bg-amber-300 shadow-sm transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-2 rounded-2xl bg-amber-400 text-gray-950 font-black text-xs hover:bg-amber-300 shadow-sm transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5 cursor-pointer"
               title="Official College Prescribed Reference Textbooks & Lecture PPTs"
             >
               <BookOpen className="w-3.5 h-3.5 text-gray-950" />
@@ -180,7 +191,7 @@ export default function CoursesPage({
             </button>
             <button
               onClick={() => setIsPYQModalOpen(true)}
-              className="px-4 py-2 rounded-2xl bg-gray-950 text-white font-bold text-xs hover:bg-black shadow-sm transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-2 rounded-2xl bg-gray-950 text-white font-bold text-xs hover:bg-black shadow-sm transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5 cursor-pointer"
               title="Click to view all authentic previous year question papers for this subject"
             >
               <FileText className="w-3.5 h-3.5 text-accentYellow" />

@@ -57,6 +57,7 @@ export const api = {
   toggleChapterComplete: (chapterId) => client.post(`/syllabus/chapter/${chapterId}/toggle-complete`),
   getChapterYouTubeLectures: (chapterId) => client.get(`/syllabus/chapter/${chapterId}/youtube-lectures`),
   updateChapterProgress: (chapterId, data) => client.post(`/syllabus/chapter/${chapterId}/progress`, data),
+  updateChapterVideoProgress: (chapterId, data) => client.post(`/syllabus/chapter/${chapterId}/video-progress`, data),
   uploadChapterReferenceMaterial: (chapterId, formData) =>
     client.post(`/syllabus/chapter/${chapterId}/reference-material`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },

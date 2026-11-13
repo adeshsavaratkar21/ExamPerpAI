@@ -729,6 +729,7 @@ def seed_database(db=None):
                     pyq_done=False,
                     quiz_done=False,
                     reference_materials="[]",
+                    watched_videos="[]",
                     completed_at=None
                 )
                 db.add(ch)

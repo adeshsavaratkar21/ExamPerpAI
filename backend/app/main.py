@@ -53,7 +53,9 @@ def ensure_schema_migrations():
                         conn.execute(text("ALTER TABLE chapters ADD COLUMN quiz_done BOOLEAN DEFAULT 0"))
                     if "reference_materials" not in ch_cols:
                         conn.execute(text("ALTER TABLE chapters ADD COLUMN reference_materials TEXT DEFAULT '[]'"))
-                    print("[ExamPrepAI] Migrated chapters table: added 4-step criteria & reference_materials columns")
+                    if "watched_videos" not in ch_cols:
+                        conn.execute(text("ALTER TABLE chapters ADD COLUMN watched_videos TEXT DEFAULT '[]'"))
+                    print("[ExamPrepAI] Migrated chapters table: added 4-step criteria, reference_materials & watched_videos columns")
 
                 # Purge legacy pre-seeded sample PYQs so repository starts completely null for user uploads
                 conn.execute(text("DELETE FROM questions WHERE pyq_doc_id IN (SELECT id FROM pyq_documents WHERE file_data IS NULL)"))
