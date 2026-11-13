@@ -39,9 +39,29 @@ def ensure_schema_migrations():
                         conn.execute(text("ALTER TABLE pyq_documents ADD COLUMN file_size_formatted VARCHAR(50) DEFAULT '1.0 MB'"))
                     print("[ExamPrepAI] Migrated pyq_documents table: added file_data, user_id columns")
 
+                # Check chapters table for 4-step completion columns
+                res_ch = conn.execute(text("PRAGMA table_info(chapters)")).fetchall()
+                ch_cols = [r[1] for r in res_ch]
+                if ch_cols:
+                    if "video_done" not in ch_cols:
+                        conn.execute(text("ALTER TABLE chapters ADD COLUMN video_done BOOLEAN DEFAULT 0"))
+                    if "notes_done" not in ch_cols:
+                        conn.execute(text("ALTER TABLE chapters ADD COLUMN notes_done BOOLEAN DEFAULT 0"))
+                    if "pyq_done" not in ch_cols:
+                        conn.execute(text("ALTER TABLE chapters ADD COLUMN pyq_done BOOLEAN DEFAULT 0"))
+                    if "quiz_done" not in ch_cols:
+                        conn.execute(text("ALTER TABLE chapters ADD COLUMN quiz_done BOOLEAN DEFAULT 0"))
+                    if "reference_materials" not in ch_cols:
+                        conn.execute(text("ALTER TABLE chapters ADD COLUMN reference_materials TEXT DEFAULT '[]'"))
+                    print("[ExamPrepAI] Migrated chapters table: added 4-step criteria & reference_materials columns")
+
                 # Purge legacy pre-seeded sample PYQs so repository starts completely null for user uploads
                 conn.execute(text("DELETE FROM questions WHERE pyq_doc_id IN (SELECT id FROM pyq_documents WHERE file_data IS NULL)"))
                 conn.execute(text("DELETE FROM pyq_documents WHERE file_data IS NULL"))
+
+                # Reset any legacy pre-completed chapters that do not meet the strict 4/4 criteria
+                conn.execute(text("UPDATE chapters SET is_completed = 0 WHERE (video_done = 0 OR notes_done = 0 OR pyq_done = 0 OR quiz_done = 0)"))
+                conn.execute(text("UPDATE quizzes SET is_completed = 0, score = 0.0, accuracy_percent = 0.0 WHERE score = 8.5 AND total_marks = 10.0"))
     except Exception as err:
         print(f"[ExamPrepAI] Migration notice: {err}")
 

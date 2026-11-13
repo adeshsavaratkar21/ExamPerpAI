@@ -493,3 +493,33 @@ def get_all_papers(db: Session = Depends(get_db)):
         "subjects": grouped
     }
 
+
+@router.post("/chapter/{chapter_id}/mark-practiced")
+def mark_chapter_pyq_practiced(chapter_id: int, db: Session = Depends(get_db)):
+    """
+    Marks Step 3/4 (PYQ Paper Practice) as completed for a unit.
+    """
+    ch = db.query(models.Chapter).filter(models.Chapter.id == chapter_id).first()
+    if not ch:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+
+    ch.pyq_done = True
+    is_fully_done = bool(ch.video_done and ch.notes_done and ch.pyq_done and ch.quiz_done)
+    ch.is_completed = is_fully_done
+    if is_fully_done and not ch.completed_at:
+        ch.completed_at = datetime.datetime.utcnow()
+
+    from app.services.analytics_service import analytics_service
+    updated_metrics = analytics_service.calculate_chapter_metrics(db, chapter_id)
+    db.commit()
+
+    return {
+        "chapter_id": ch.id,
+        "pyq_done": True,
+        "is_completed": ch.is_completed,
+        "steps_done": sum([1 for f in [ch.video_done, ch.notes_done, ch.pyq_done, ch.quiz_done] if f]),
+        "total_steps": 4,
+        "readiness_index": updated_metrics["readiness_index"]
+    }
+
+

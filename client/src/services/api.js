@@ -55,6 +55,14 @@ export const api = {
   getReadinessReport: (subjectId) => client.get(`/analytics/subject/${subjectId}`),
   updateWeightage: (data) => client.post('/analytics/weightage', data),
   toggleChapterComplete: (chapterId) => client.post(`/syllabus/chapter/${chapterId}/toggle-complete`),
+  getChapterYouTubeLectures: (chapterId) => client.get(`/syllabus/chapter/${chapterId}/youtube-lectures`),
+  updateChapterProgress: (chapterId, data) => client.post(`/syllabus/chapter/${chapterId}/progress`, data),
+  uploadChapterReferenceMaterial: (chapterId, formData) =>
+    client.post(`/syllabus/chapter/${chapterId}/reference-material`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+  getChapterReferenceMaterials: (chapterId) => client.get(`/syllabus/chapter/${chapterId}/reference-materials`),
+  markChapterPYQPracticed: (chapterId) => client.post(`/pyq/chapter/${chapterId}/mark-practiced`),
 
   // Reference Textbooks & College Prescribed Books
   getSubjectBooks: (identifier) => client.get(`/books/subject/${identifier}`),

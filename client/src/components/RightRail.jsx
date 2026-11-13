@@ -248,10 +248,10 @@ export default function RightRail({
 
               // Real syllabus coverage calculation
               const readinessPct = Math.round(
-                matchedSub?.overall_readiness || ((exam.completedUnits || 2) / (exam.totalUnits || 6)) * 100
+                matchedSub?.overall_readiness ?? ((exam.completedUnits ?? 0) / (exam.totalUnits || 6)) * 100
               );
               const totalUnits = matchedSub?.chapter_count || exam.totalUnits || 6;
-              const completedUnits = exam.completedUnits || 2;
+              const completedUnits = exam.completedUnits ?? 0;
 
               // Color highlight logic
               const isUrgent = daysLeft !== null && daysLeft <= 7;
@@ -325,7 +325,7 @@ export default function RightRail({
                   <div className="w-full bg-black/10 h-1 rounded-full overflow-hidden mt-0.5">
                     <div 
                       className={`h-full rounded-full transition-all duration-500 ${exam.barColor || 'bg-amber-400'}`}
-                      style={{ width: `${Math.max(10, readinessPct)}%` }}
+                      style={{ width: `${readinessPct}%` }}
                     />
                   </div>
                 </div>

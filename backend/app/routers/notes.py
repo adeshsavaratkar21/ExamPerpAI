@@ -15,6 +15,7 @@ from app.db.database import get_db
 from app.db import models
 from app.schemas import schemas
 from app.services.gemini_service import gemini_service
+from app.services.analytics_service import analytics_service
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -232,10 +233,26 @@ async def generate_mastery_notes(
         topics_str=chapter.topics or ""
     )
 
+    # Ingest any attached unit-level reference materials (PPTs, PDFs, notes)
+    ref_context = ""
+    if chapter.reference_materials:
+        try:
+            mats = json.loads(chapter.reference_materials)
+            for m in mats:
+                preview = m.get("text_preview", "")
+                if preview:
+                    ref_context += f"\n--- Attached Reference Material: {m.get('filename')} ---\n" + preview[:1200]
+        except Exception:
+            pass
+
+    combined_context = (book_context or "") + ("\n" + ref_context if ref_context else "")
+
     # Determine sources string
     books_dir = os.path.join(settings.UPLOAD_DIR, (subject.code or "").upper(), "books")
     found_books = [f for f in os.listdir(books_dir) if f.lower().endswith(".pdf")] if os.path.exists(books_dir) else []
     sources_desc = f"Prescribed Textbooks ({', '.join(found_books[:2])}) & University PYQs" if found_books else "University Syllabus Curricula & PYQs"
+    if ref_context:
+        sources_desc += " + Attached Reference Slides/PPTs"
 
     # Single Gemini generation
     loop = asyncio.get_event_loop()
@@ -246,7 +263,7 @@ async def generate_mastery_notes(
             chapter.name,
             subject.name,
             pyq_snippets,
-            book_context,
+            combined_context,
             chapter.topics
         )
 
@@ -275,6 +292,14 @@ async def generate_mastery_notes(
         existing.mnemonics = json.dumps([])
         existing.updated_at = datetime.datetime.utcnow()
 
+    # Step 2/4 (Revision Notes) completed
+    chapter.notes_done = True
+    is_fully_done = bool(chapter.video_done and chapter.notes_done and chapter.pyq_done and chapter.quiz_done)
+    chapter.is_completed = is_fully_done
+    if is_fully_done and not chapter.completed_at:
+        chapter.completed_at = datetime.datetime.utcnow()
+    analytics_service.calculate_chapter_metrics(db, chapter.id)
+
     db.commit()
 
     return schemas.DualNotesResponse(
@@ -298,19 +323,29 @@ async def generate_mastery_notes(
 @router.post("/chapter/{chapter_id}/complete")
 def mark_module_complete(chapter_id: int, db: Session = Depends(get_db)):
     """
-    Marks the mastery module as complete (sets chapter.is_completed = True).
-    Frontend calls this when the user finishes all stepper steps.
+    Marks the revision notes step as done (sets chapter.notes_done = True).
+    If all 4 steps are complete, marks chapter.is_completed = True.
     """
     chapter = db.query(models.Chapter).filter(models.Chapter.id == chapter_id).first()
     if not chapter:
         raise HTTPException(status_code=404, detail="Chapter not found")
 
-    if not chapter.is_completed:
-        chapter.is_completed = True
+    chapter.notes_done = True
+    is_fully_done = bool(chapter.video_done and chapter.notes_done and chapter.pyq_done and chapter.quiz_done)
+    chapter.is_completed = is_fully_done
+    if is_fully_done and not chapter.completed_at:
         chapter.completed_at = datetime.datetime.utcnow()
-        db.commit()
+    elif not is_fully_done:
+        chapter.completed_at = None
 
-    return {"chapter_id": chapter_id, "module_completed": True}
+    analytics_service.calculate_chapter_metrics(db, chapter.id)
+    db.commit()
+
+    return {
+        "chapter_id": chapter_id,
+        "notes_done": True,
+        "is_completed": chapter.is_completed
+    }
 
 
 # ─── Get revision sheet ───────────────────────────────────────────────────────
@@ -407,6 +442,20 @@ async def generate_revision_sheet(
         topics_str=chapter.topics or ""
     )
 
+    # Ingest any attached unit-level reference materials (PPTs, PDFs, notes)
+    ref_context = ""
+    if chapter.reference_materials:
+        try:
+            mats = json.loads(chapter.reference_materials)
+            for m in mats:
+                preview = m.get("text_preview", "")
+                if preview:
+                    ref_context += f"\n--- Attached Reference Material: {m.get('filename')} ---\n" + preview[:1500]
+        except Exception:
+            pass
+
+    combined_context = (book_context or "") + ("\n" + ref_context if ref_context else "")
+
     loop = asyncio.get_event_loop()
     with ThreadPoolExecutor(max_workers=1) as executor:
         sheet_result = await loop.run_in_executor(
@@ -419,7 +468,7 @@ async def generate_revision_sheet(
             existing_formulas,
             chapter.topics,
             chapter.unit_number,
-            book_context
+            combined_context
         )
 
     sheet_json = json.dumps(sheet_result)
@@ -440,6 +489,14 @@ async def generate_revision_sheet(
             updated_at=datetime.datetime.utcnow()
         )
         db.add(summary)
+
+    # Step 2/4 (Revision Notes) completed
+    chapter.notes_done = True
+    is_fully_done = bool(chapter.video_done and chapter.notes_done and chapter.pyq_done and chapter.quiz_done)
+    chapter.is_completed = is_fully_done
+    if is_fully_done and not chapter.completed_at:
+        chapter.completed_at = datetime.datetime.utcnow()
+    analytics_service.calculate_chapter_metrics(db, chapter.id)
 
     db.commit()
 

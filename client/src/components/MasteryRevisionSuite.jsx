@@ -7,11 +7,13 @@ import {
   CheckCircle2,
   Sparkles,
   AlertCircle,
-  HelpCircle
+  HelpCircle,
+  BookOpen
 } from 'lucide-react';
 import ConceptTutorTab from './ConceptTutorTab';
 import TutorChatTab from './TutorChatTab';
 import RevisionSheetTab from './RevisionSheetTab';
+import UnitReferenceMaterialModal from './UnitReferenceMaterialModal';
 import api from '../services/api';
 
 const TABS = [
@@ -28,6 +30,7 @@ export default function MasteryRevisionSuite({
   onNavigateToQuiz,
 }) {
   const [activeTab, setActiveTab] = useState('tutor');
+  const [isRefModalOpen, setIsRefModalOpen] = useState(false);
 
   /* ── Tutor state ── */
   const [tutorData, setTutorData] = useState(null);
@@ -199,8 +202,16 @@ export default function MasteryRevisionSuite({
           );
         })}
 
-        {/* Quiz shortcut */}
+        {/* Reference Slides & Quiz shortcut */}
         <div className="w-px h-7 bg-gray-100 mx-1" />
+        <button
+          onClick={() => setIsRefModalOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-amber-950 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-xs font-bold transition-all cursor-pointer"
+          title="Attach lecture PPT or textbook excerpts to ground notes"
+        >
+          <BookOpen className="w-3.5 h-3.5 text-amber-800" />
+          Ground with PPT
+        </button>
         <button
           onClick={() => onNavigateToQuiz && onNavigateToQuiz(selectedChapterId)}
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-gray-600 hover:bg-gray-100 text-xs font-bold transition-all"
@@ -253,6 +264,18 @@ export default function MasteryRevisionSuite({
           />
         )}
       </div>
+
+      {/* Unit Reference Material Modal */}
+      <UnitReferenceMaterialModal
+        isOpen={isRefModalOpen}
+        onClose={() => setIsRefModalOpen(false)}
+        chapterId={selectedChapterId}
+        chapterName={chapterName}
+        onGenerateNotes={() => {
+          setActiveTab('sheet');
+          handleGenerateRevisionSheet(true);
+        }}
+      />
     </div>
   );
 }

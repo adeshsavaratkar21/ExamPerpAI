@@ -14,11 +14,15 @@ import {
   ChevronRight,
   GraduationCap,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  Tv,
+  Play
 } from 'lucide-react';
 import api from '../services/api';
 import SubjectPYQModal from '../components/SubjectPYQModal';
 import ReferenceBooksModal from '../components/ReferenceBooksModal';
+import YouTubeLecturesModal from '../components/YouTubeLecturesModal';
+import UnitReferenceMaterialModal from '../components/UnitReferenceMaterialModal';
 
 export default function CoursesPage({
   selectedSubjectId,
@@ -32,6 +36,8 @@ export default function CoursesPage({
   const [activeFolderId, setActiveFolderId] = useState(selectedSubjectId || (subjectsArray.length > 0 ? subjectsArray[0].id : null));
   const [isPYQModalOpen, setIsPYQModalOpen] = useState(false);
   const [isBooksModalOpen, setIsBooksModalOpen] = useState(false);
+  const [youtubeModalChapter, setYoutubeModalChapter] = useState(null);
+  const [refModalChapter, setRefModalChapter] = useState(null);
   const [courseFilter, setCourseFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [subjectDetail, setSubjectDetail] = useState(null);
@@ -117,8 +123,10 @@ export default function CoursesPage({
     };
 
     const chapters = subjectDetail.chapters || [];
-    const readinessPct = Math.round(subjectDetail.overall_readiness || 28);
     const completedUnits = chapters.filter(c => c.is_completed).length;
+    const readinessPct = chapters.length > 0
+      ? Math.round((completedUnits / chapters.length) * 100)
+      : Math.round(subjectDetail.overall_readiness ?? 0);
 
     return (
       <div className="space-y-8 animate-in fade-in duration-200">
@@ -224,7 +232,7 @@ export default function CoursesPage({
               <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden mb-2">
                 <div 
                   className="bg-accentNavy h-2.5 rounded-full transition-all duration-700"
-                  style={{ width: `${Math.max(12, readinessPct)}%` }}
+                  style={{ width: `${readinessPct}%` }}
                 />
               </div>
               <div className="flex items-center justify-between text-[11px] font-semibold text-gray-400">
@@ -383,17 +391,43 @@ export default function CoursesPage({
                     </div>
 
                     {/* Completion Tag & Action Buttons */}
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
                       {isComp ? (
                         <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          Completed
+                          4/4 Completed
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gray-50 text-gray-500 border border-gray-200 text-xs font-semibold">
-                          In Progress
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gray-50 text-gray-600 border border-gray-200 text-xs font-semibold">
+                          {(ch.video_done ? 1 : 0) + (ch.notes_done ? 1 : 0) + (ch.pyq_done ? 1 : 0) + (ch.quiz_done ? 1 : 0)}/4 In Progress
                         </span>
                       )}
+
+                      {/* YouTube Concept Lectures Trigger */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setYoutubeModalChapter(ch);
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-2xs transition-all flex items-center gap-1 cursor-pointer"
+                        title="Watch curated syllabus YouTube concept lectures for this unit"
+                      >
+                        <Tv className="w-3.5 h-3.5 text-white" />
+                        <span>Lectures</span>
+                      </button>
+
+                      {/* Reference PPT/Slides Trigger */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRefModalChapter(ch);
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-xs transition-colors flex items-center gap-1 cursor-pointer"
+                        title="Attach lecture PPTs or textbook excerpts to ground notes"
+                      >
+                        <BookOpen className="w-3.5 h-3.5 text-amber-800" />
+                        <span>PPT</span>
+                      </button>
 
                       <button
                         onClick={(e) => {
@@ -428,6 +462,123 @@ export default function CoursesPage({
                       </button>
                     </div>
                   </div>
+
+                  {/* 4-Step Module Completion Checklist Indicator */}
+                  {(() => {
+                    const vDone = !!ch.video_done;
+                    const nDone = !!ch.notes_done;
+                    const pDone = !!ch.pyq_done;
+                    const qDone = !!ch.quiz_done;
+                    const stepsDone = (vDone ? 1 : 0) + (nDone ? 1 : 0) + (pDone ? 1 : 0) + (qDone ? 1 : 0);
+
+                    return (
+                      <div className="my-3 p-3 rounded-xl bg-gray-50/90 border border-gray-100 flex flex-wrap items-center justify-between gap-2.5">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                          {/* Step 1: Video */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setYoutubeModalChapter(ch);
+                            }}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-black flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer ${
+                              vDone
+                                ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                                : 'bg-white text-gray-700 border border-gray-200 hover:border-red-400 hover:text-red-700'
+                            }`}
+                            title="Step 1: Watch/complete syllabus YouTube concept lectures"
+                          >
+                            <Tv className={`w-3.5 h-3.5 ${vDone ? 'text-emerald-700' : 'text-red-600'}`} />
+                            <span>1. Video {vDone ? '✓' : ''}</span>
+                          </button>
+
+                          {/* Step 2: Notes */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (setSelectedSubjectId && activeFolderId) setSelectedSubjectId(activeFolderId);
+                              if (onViewNotesForChapter) onViewNotesForChapter(ch.id);
+                            }}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-black flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer ${
+                              nDone
+                                ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                                : 'bg-white text-gray-700 border border-gray-200 hover:border-amber-400 hover:text-amber-800'
+                            }`}
+                            title="Step 2: Generate and review 1-page revision sheet"
+                          >
+                            <Sparkles className={`w-3.5 h-3.5 ${nDone ? 'text-emerald-700' : 'text-amber-500'}`} />
+                            <span>2. Notes {nDone ? '✓' : ''}</span>
+                          </button>
+
+                          {/* Step 3: PYQs */}
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                const res = await api.markChapterPYQPracticed(ch.id);
+                                setSubjectDetail(prev => {
+                                  if (!prev) return prev;
+                                  return {
+                                    ...prev,
+                                    chapters: (prev.chapters || []).map(item => item.id === ch.id ? { ...item, pyq_done: true, is_completed: res.data.is_completed } : item)
+                                  };
+                                });
+                              } catch (err) {
+                                console.error(err);
+                              }
+                            }}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-black flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer ${
+                              pDone
+                                ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                                : 'bg-white text-gray-700 border border-gray-200 hover:border-emerald-400 hover:text-emerald-800'
+                            }`}
+                            title="Step 3: Click to mark past-year practice completed"
+                          >
+                            <FileText className={`w-3.5 h-3.5 ${pDone ? 'text-emerald-700' : 'text-gray-400'}`} />
+                            <span>3. PYQs {pDone ? '✓' : ''}</span>
+                          </button>
+
+                          {/* Step 4: Quiz */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (setSelectedSubjectId && activeFolderId) setSelectedSubjectId(activeFolderId);
+                              if (onLaunchQuizForChapter) onLaunchQuizForChapter(ch.id);
+                            }}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-black flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer ${
+                              qDone
+                                ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                                : 'bg-white text-gray-700 border border-gray-200 hover:border-indigo-400 hover:text-indigo-800'
+                            }`}
+                            title="Step 4: Take and pass the unit quiz"
+                          >
+                            <HelpCircle className={`w-3.5 h-3.5 ${qDone ? 'text-emerald-700' : 'text-indigo-500'}`} />
+                            <span>4. Quiz {qDone ? '✓' : ''}</span>
+                          </button>
+                        </div>
+
+                        {/* Progress fraction badge */}
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 bg-gray-200 h-2 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full transition-all duration-300 ${
+                                isComp ? 'bg-emerald-600' : 'bg-accentNavy'
+                              }`}
+                              style={{ width: `${(stepsDone / 4) * 100}%` }}
+                            />
+                          </div>
+                          <span className={`text-[11px] font-black ${
+                            isComp ? 'text-emerald-700' : 'text-gray-600'
+                          }`}>
+                            {stepsDone}/4 {isComp ? 'Complete' : 'Steps'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Sub-topics List */}
                   <div className="pt-3">
@@ -465,6 +616,41 @@ export default function CoursesPage({
           subjectId={subjectDetail.id}
           subjectCode={subjectDetail.code}
           subjectName={subjectDetail.name}
+        />
+
+        {/* Curated YouTube Concept Lectures Modal */}
+        <YouTubeLecturesModal
+          isOpen={!!youtubeModalChapter}
+          onClose={() => setYoutubeModalChapter(null)}
+          chapterId={youtubeModalChapter?.id}
+          chapterName={youtubeModalChapter?.name}
+          subjectCode={subjectDetail.code}
+          subjectName={subjectDetail.name}
+          unitNumber={youtubeModalChapter?.unit_number}
+          onProgressUpdated={(prog) => {
+            setSubjectDetail(prev => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                chapters: (prev.chapters || []).map(item => 
+                  item.id === prog.chapter_id ? { ...item, ...prog } : item
+                )
+              };
+            });
+          }}
+        />
+
+        {/* Unit Reference Material Modal (PPTs, PDFs, Notes) */}
+        <UnitReferenceMaterialModal
+          isOpen={!!refModalChapter}
+          onClose={() => setRefModalChapter(null)}
+          chapterId={refModalChapter?.id}
+          chapterName={refModalChapter?.name}
+          subjectCode={subjectDetail.code}
+          onGenerateNotes={(chId) => {
+            if (setSelectedSubjectId && activeFolderId) setSelectedSubjectId(activeFolderId);
+            if (onViewNotesForChapter) onViewNotesForChapter(chId);
+          }}
         />
       </div>
     );
@@ -518,7 +704,7 @@ export default function CoursesPage({
             color: 'text-gray-800 bg-gray-50 border-gray-200' 
           };
           const isSelected = sub.id === Number(selectedSubjectId);
-          const readinessPct = Math.round(sub.overall_readiness || 25);
+          const readinessPct = Math.round(sub.overall_readiness ?? 0);
           const displayName = sub.code === 'MDM' ? 'Multidisciplinary Minor' : sub.name;
 
           return (
@@ -599,7 +785,7 @@ export default function CoursesPage({
                 <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden mb-2">
                   <div
                     className="bg-accentNavy h-2 rounded-full transition-all duration-500"
-                    style={{ width: `${Math.max(12, readinessPct)}%` }}
+                    style={{ width: `${readinessPct}%` }}
                   />
                 </div>
                 <div className="flex items-center justify-between text-[11px] font-bold text-gray-500">

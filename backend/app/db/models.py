@@ -40,6 +40,11 @@ class Chapter(Base):
     weightage_percent = Column(Float, default=15.0)
     topics = Column(Text, nullable=True)
     is_completed = Column(Boolean, default=False)
+    video_done = Column(Boolean, default=False)
+    notes_done = Column(Boolean, default=False)
+    pyq_done = Column(Boolean, default=False)
+    quiz_done = Column(Boolean, default=False)
+    reference_materials = Column(Text, default="[]")
     completed_at = Column(DateTime, nullable=True)
 
     subject = relationship("Subject", back_populates="chapters")

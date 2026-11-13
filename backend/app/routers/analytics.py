@@ -1,13 +1,15 @@
 import datetime
 import json
 import os
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
+import shutil
+from typing import List, Optional, Dict, Any
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.db import models
 from app.schemas import schemas
 from app.services.analytics_service import analytics_service
+from app.services.youtube_service import youtube_service
 from app.core.config import settings
 
 router = APIRouter(tags=["Analytics & Syllabus Management"])
@@ -165,6 +167,13 @@ def get_subject_detail(subject_id: int, db: Session = Depends(get_db)):
             except Exception:
                 pass
 
+        ref_materials_parsed = []
+        if getattr(ch, "reference_materials", None):
+            try:
+                ref_materials_parsed = json.loads(ch.reference_materials)
+            except Exception:
+                ref_materials_parsed = []
+
         chapters_out.append(schemas.ChapterResponse(
             id=ch.id,
             subject_id=ch.subject_id,
@@ -176,7 +185,12 @@ def get_subject_detail(subject_id: int, db: Session = Depends(get_db)):
             estimated_ese_marks=ch.estimated_ese_marks or ch.weightage_marks,
             weightage_percent=ch.weightage_percent,
             topics=topics_parsed,
-            is_completed=ch.is_completed,
+            is_completed=bool(ch.is_completed),
+            video_done=bool(getattr(ch, "video_done", False)),
+            notes_done=bool(getattr(ch, "notes_done", False)),
+            pyq_done=bool(getattr(ch, "pyq_done", False)),
+            quiz_done=bool(getattr(ch, "quiz_done", False)),
+            reference_materials=ref_materials_parsed,
             completed_at=ch.completed_at,
             questions_count=q_count,
             accuracy_score=metrics["accuracy"],
@@ -262,14 +276,21 @@ def update_weightage_distribution(
 @router.post("/syllabus/chapter/{chapter_id}/toggle-complete")
 def toggle_chapter_completion(chapter_id: int, db: Session = Depends(get_db)):
     """
-    Marks a chapter completed or active.
+    Toggles whole chapter completion state.
+    Strict 4-Step Rule: Setting is_completed=True marks all 4 components (video, notes, pyq, quiz) done;
+    unmarking sets all 4 components to False.
     """
     ch = db.query(models.Chapter).filter(models.Chapter.id == chapter_id).first()
     if not ch:
         raise HTTPException(status_code=404, detail="Chapter not found")
 
-    ch.is_completed = not ch.is_completed
-    ch.completed_at = datetime.datetime.utcnow() if ch.is_completed else None
+    new_state = not ch.is_completed
+    ch.is_completed = new_state
+    ch.video_done = new_state
+    ch.notes_done = new_state
+    ch.pyq_done = new_state
+    ch.quiz_done = new_state
+    ch.completed_at = datetime.datetime.utcnow() if new_state else None
     
     # Recalculate metrics
     updated_metrics = analytics_service.calculate_chapter_metrics(db, chapter_id)
@@ -278,9 +299,217 @@ def toggle_chapter_completion(chapter_id: int, db: Session = Depends(get_db)):
     return {
         "chapter_id": ch.id,
         "is_completed": ch.is_completed,
+        "video_done": ch.video_done,
+        "notes_done": ch.notes_done,
+        "pyq_done": ch.pyq_done,
+        "quiz_done": ch.quiz_done,
+        "steps_done": 4 if new_state else 0,
+        "total_steps": 4,
         "completed_at": ch.completed_at.isoformat() if ch.completed_at else None,
         "updated_readiness_index": updated_metrics["readiness_index"],
         "priority_level": updated_metrics["priority_quadrant"]
+    }
+
+
+@router.post("/syllabus/chapter/{chapter_id}/progress")
+def update_chapter_progress(
+    chapter_id: int,
+    payload: schemas.ChapterProgressUpdate,
+    db: Session = Depends(get_db)
+):
+    """
+    Updates the 4-part completion flags (video_done, notes_done, pyq_done, quiz_done).
+    Strict 4-Step Rule: A chapter is ONLY marked is_completed=True when all 4 flags are True.
+    """
+    ch = db.query(models.Chapter).filter(models.Chapter.id == chapter_id).first()
+    if not ch:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+
+    if payload.video_done is not None:
+        ch.video_done = payload.video_done
+    if payload.notes_done is not None:
+        ch.notes_done = payload.notes_done
+    if payload.pyq_done is not None:
+        ch.pyq_done = payload.pyq_done
+    if payload.quiz_done is not None:
+        ch.quiz_done = payload.quiz_done
+
+    is_all_done = bool(ch.video_done and ch.notes_done and ch.pyq_done and ch.quiz_done)
+    ch.is_completed = is_all_done
+    if is_all_done and not ch.completed_at:
+        ch.completed_at = datetime.datetime.utcnow()
+    elif not is_all_done:
+        ch.completed_at = None
+
+    updated_metrics = analytics_service.calculate_chapter_metrics(db, chapter_id)
+    db.commit()
+
+    steps_done = sum([1 for flag in [ch.video_done, ch.notes_done, ch.pyq_done, ch.quiz_done] if flag])
+
+    return {
+        "chapter_id": ch.id,
+        "is_completed": ch.is_completed,
+        "video_done": bool(ch.video_done),
+        "notes_done": bool(ch.notes_done),
+        "pyq_done": bool(ch.pyq_done),
+        "quiz_done": bool(ch.quiz_done),
+        "steps_done": steps_done,
+        "total_steps": 4,
+        "completed_at": ch.completed_at.isoformat() if ch.completed_at else None,
+        "updated_readiness_index": updated_metrics["readiness_index"],
+        "priority_level": updated_metrics["priority_quadrant"]
+    }
+
+
+@router.get("/syllabus/chapter/{chapter_id}/youtube-lectures")
+def get_chapter_youtube_lectures(chapter_id: int, db: Session = Depends(get_db)):
+    """
+    Fetches curated, syllabus-scoped educational YouTube lectures for a specific module/unit.
+    """
+    ch = db.query(models.Chapter).filter(models.Chapter.id == chapter_id).first()
+    if not ch:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+
+    subject = db.query(models.Subject).filter(models.Subject.id == ch.subject_id).first()
+    subject_code = subject.code if subject else "DC"
+
+    parsed_topics = []
+    if ch.topics:
+        try:
+            parsed_topics = json.loads(ch.topics)
+            if not isinstance(parsed_topics, list):
+                parsed_topics = [str(ch.topics)]
+        except Exception:
+            parsed_topics = [t.strip() for t in str(ch.topics).split(",") if t.strip()]
+
+    lectures = youtube_service.get_lectures_for_chapter(
+        subject_code=subject_code,
+        unit_number=ch.unit_number,
+        chapter_name=ch.name,
+        topics=parsed_topics
+    )
+
+    steps_done = sum([1 for flag in [ch.video_done, ch.notes_done, ch.pyq_done, ch.quiz_done] if flag])
+
+    return {
+        "chapter_id": ch.id,
+        "chapter_name": ch.name,
+        "unit_number": ch.unit_number,
+        "subject_code": subject_code,
+        "subject_name": subject.name if subject else "",
+        "video_done": bool(ch.video_done),
+        "steps_done": steps_done,
+        "total_steps": 4,
+        "is_completed": bool(ch.is_completed),
+        "lectures": lectures
+    }
+
+
+@router.post("/syllabus/chapter/{chapter_id}/reference-material")
+async def upload_chapter_reference_material(
+    chapter_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Uploads unit reference material (Lecture PPT, Textbook PDF, or Class Notes),
+    extracts key text context, and attaches it to the chapter for grounded note generation.
+    """
+    ch = db.query(models.Chapter).filter(models.Chapter.id == chapter_id).first()
+    if not ch:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+
+    subject = db.query(models.Subject).filter(models.Subject.id == ch.subject_id).first()
+    subject_code = (subject.code or "SUB").upper()
+
+    ref_dir = os.path.join(settings.UPLOAD_DIR, subject_code, f"unit_{ch.unit_number or ch.id}")
+    os.makedirs(ref_dir, exist_ok=True)
+
+    safe_name = f"{int(datetime.datetime.utcnow().timestamp())}_{file.filename.replace(' ', '_')}"
+    file_path = os.path.join(ref_dir, safe_name)
+
+    content = await file.read()
+    with open(file_path, "wb") as f:
+        f.write(content)
+
+    extracted_text = ""
+    file_lower = file.filename.lower()
+    try:
+        if file_lower.endswith(".pdf"):
+            from pypdf import PdfReader
+            reader = PdfReader(file_path)
+            pages_text = [page.extract_text() or "" for page in reader.pages[:15]]
+            extracted_text = "\n".join(pages_text).strip()
+        elif file_lower.endswith((".pptx", ".ppt")):
+            try:
+                from pptx import Presentation
+                prs = Presentation(file_path)
+                slides_text = []
+                for slide in prs.slides:
+                    for shape in slide.shapes:
+                        if hasattr(shape, "text") and shape.text:
+                            slides_text.append(shape.text.strip())
+                extracted_text = "\n".join(slides_text).strip()
+            except Exception as ppt_err:
+                extracted_text = f"PPT presentation uploaded: {file.filename}"
+        elif file_lower.endswith(".txt"):
+            extracted_text = content.decode("utf-8", errors="ignore")
+    except Exception as extract_err:
+        extracted_text = f"Reference file attached: {file.filename} (error extracting text: {extract_err})"
+
+    file_size_kb = max(1, round(len(content) / 1024))
+    size_formatted = f"{file_size_kb / 1024:.1f} MB" if file_size_kb >= 1024 else f"{file_size_kb} KB"
+
+    existing_materials = []
+    if ch.reference_materials:
+        try:
+            existing_materials = json.loads(ch.reference_materials)
+            if not isinstance(existing_materials, list):
+                existing_materials = []
+        except Exception:
+            existing_materials = []
+
+    material_entry = {
+        "id": f"ref_{int(datetime.datetime.utcnow().timestamp())}",
+        "filename": file.filename,
+        "file_path": file_path,
+        "file_size": size_formatted,
+        "uploaded_at": datetime.datetime.utcnow().isoformat(),
+        "text_preview": extracted_text[:1000] if extracted_text else ""
+    }
+    existing_materials.append(material_entry)
+    ch.reference_materials = json.dumps(existing_materials)
+    db.commit()
+
+    return {
+        "message": f"Successfully attached {file.filename} as reference material for {ch.name}",
+        "chapter_id": ch.id,
+        "reference_materials": existing_materials
+    }
+
+
+@router.get("/syllabus/chapter/{chapter_id}/reference-materials")
+def get_chapter_reference_materials(chapter_id: int, db: Session = Depends(get_db)):
+    """
+    Returns the list of attached reference materials for this unit.
+    """
+    ch = db.query(models.Chapter).filter(models.Chapter.id == chapter_id).first()
+    if not ch:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+
+    materials = []
+    if ch.reference_materials:
+        try:
+            materials = json.loads(ch.reference_materials)
+            if not isinstance(materials, list):
+                materials = []
+        except Exception:
+            materials = []
+
+    return {
+        "chapter_id": ch.id,
+        "chapter_name": ch.name,
+        "reference_materials": materials
     }
 
 

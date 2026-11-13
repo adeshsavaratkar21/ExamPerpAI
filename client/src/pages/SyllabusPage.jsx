@@ -34,22 +34,7 @@ export default function SyllabusPage({
       const res = await api.getReadinessReport(selectedSubjectId);
       const data = res.data;
 
-      // Overlay locally saved completed chapters so they persist across refreshes
-      const storageKey = `examprep_completed_chapters_${selectedSubjectId}`;
-      const localCompleted = JSON.parse(localStorage.getItem(storageKey) || 'null');
-      if (localCompleted && Array.isArray(localCompleted)) {
-        const completedSet = new Set(localCompleted);
-        data.all_topics = (data.all_topics || []).map(t => ({
-          ...t,
-          is_completed: completedSet.has(t.chapter_id)
-        }));
-        const count = data.all_topics.filter(t => t.is_completed).length;
-        data.overall_readiness_index = data.all_topics.length > 0
-          ? Math.round((count / data.all_topics.length) * 100)
-          : data.overall_readiness_index;
-      }
-
-      // Overlay locally saved custom weights
+      // Overlay locally saved custom weights if available
       const weightKey = `examprep_weightage_${selectedSubjectId}`;
       const localWeights = JSON.parse(localStorage.getItem(weightKey) || 'null');
 

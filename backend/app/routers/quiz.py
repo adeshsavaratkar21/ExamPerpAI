@@ -214,6 +214,15 @@ def submit_quiz(payload: schemas.QuizSubmitRequest, db: Session = Depends(get_db
     quiz.is_completed = True
     quiz.completed_at = datetime.datetime.utcnow()
 
+    # Step 4/4 (Module Quiz) completed
+    ch = db.query(models.Chapter).filter(models.Chapter.id == quiz.chapter_id).first()
+    if ch:
+        ch.quiz_done = True
+        is_fully_done = bool(ch.video_done and ch.notes_done and ch.pyq_done and ch.quiz_done)
+        ch.is_completed = is_fully_done
+        if is_fully_done and not ch.completed_at:
+            ch.completed_at = datetime.datetime.utcnow()
+
     # Recalculate chapter metrics and strategic readiness
     updated_metrics = analytics_service.calculate_chapter_metrics(db, quiz.chapter_id)
 

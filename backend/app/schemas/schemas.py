@@ -14,10 +14,22 @@ class ChapterBase(BaseModel):
     weightage_percent: Optional[float] = 15.0
     topics: Optional[List[str]] = []
     is_completed: Optional[bool] = False
+    video_done: Optional[bool] = False
+    notes_done: Optional[bool] = False
+    pyq_done: Optional[bool] = False
+    quiz_done: Optional[bool] = False
+    reference_materials: Optional[Any] = []
 
 
 class ChapterCreate(ChapterBase):
     pass
+
+
+class ChapterProgressUpdate(BaseModel):
+    video_done: Optional[bool] = None
+    notes_done: Optional[bool] = None
+    pyq_done: Optional[bool] = None
+    quiz_done: Optional[bool] = None
 
 
 class ChapterUpdate(BaseModel):
@@ -25,6 +37,10 @@ class ChapterUpdate(BaseModel):
     weightage_marks: Optional[float] = None
     weightage_percent: Optional[float] = None
     is_completed: Optional[bool] = None
+    video_done: Optional[bool] = None
+    notes_done: Optional[bool] = None
+    pyq_done: Optional[bool] = None
+    quiz_done: Optional[bool] = None
 
 
 class ChapterResponse(ChapterBase):

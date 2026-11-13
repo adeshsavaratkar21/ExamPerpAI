@@ -657,6 +657,12 @@ def seed_database(db=None):
     unit distributions, PYQs, and initial revision sheets with zero constraint errors.
     """
     close_when_done = False
+    try:
+        from app.main import ensure_schema_migrations
+        ensure_schema_migrations()
+    except Exception as e:
+        print(f"[seed_database] Migration notice: {e}")
+
     if db is None:
         Base.metadata.create_all(bind=engine)
         db = SessionLocal()
@@ -717,8 +723,13 @@ def seed_database(db=None):
                     estimated_ese_marks=float(c_info.get("estimated_ese_marks", marks)),
                     weightage_percent=pct,
                     topics=json.dumps(c_info.get("topics", [])) if "topics" in c_info else json.dumps([c_info["name"]]),
-                    is_completed=is_comp,
-                    completed_at=now if is_comp else None
+                    is_completed=False,
+                    video_done=False,
+                    notes_done=False,
+                    pyq_done=False,
+                    quiz_done=False,
+                    reference_materials="[]",
+                    completed_at=None
                 )
                 db.add(ch)
                 db.flush()
@@ -726,49 +737,7 @@ def seed_database(db=None):
                 ch_map[raw_name] = ch.id
                 created_chs.append(ch)
 
-            # Pre-seed a completed quiz for Chapter 1
-            ch1 = created_chs[0]
-            quiz = models.Quiz(
-                subject_id=sub.id,
-                chapter_id=ch1.id,
-                title=f"{ch1.name} — Practice Quiz #1",
-                mode="Standard",
-                score=8.5,
-                total_marks=10.0,
-                accuracy_percent=85.0,
-                is_completed=True,
-                created_at=now,
-                completed_at=now
-            )
-            db.add(quiz)
-            db.flush()
-
-            # Pre-seed Unified Mastery Notes & Handwritten Revision Sheet for Chapter 1
-            gemini_summary = gemini_service._fallback_gemini_summary(ch1.name, sub.name)
-            sheet_result = gemini_service.generate_revision_sheet(
-                chapter_name=ch1.name,
-                subject_name=sub.name,
-                pyqs_context=[item[1] for item in s_info.get("pyqs", []) if item[0] == ch1.name or item[0].startswith(f"Unit {ch1.unit_number}")],
-                existing_pitfalls=gemini_summary.get("pitfalls", []),
-                existing_formulas=gemini_summary.get("formulas", []),
-                chapter_topics=ch1.topics,
-                unit_number=ch1.unit_number
-            )
-
-            summary = models.ChapterSummary(
-                chapter_id=ch1.id,
-                subject_id=sub.id,
-                gemini_summary_md=gemini_summary["summary_md"],
-                openai_summary_md=json.dumps(sheet_result),
-                key_formulas=json.dumps(sheet_result.get("formulas", [])),
-                pitfalls=json.dumps(sheet_result.get("pitfalls", [])),
-                mnemonics=json.dumps(sheet_result.get("mnemonics", [])),
-                generated_at=now,
-                updated_at=now
-            )
-            db.add(summary)
-
-            # Compute metrics
+            # Compute metrics: all start strictly at 0%
             for c in created_chs:
                 analytics_service.calculate_chapter_metrics(db, c.id)
 

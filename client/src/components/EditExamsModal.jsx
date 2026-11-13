@@ -16,7 +16,7 @@ export const DEFAULT_EXAMS = [
     barColor: 'bg-amber-400',
     type: 'Endsem (ESE)',
     totalUnits: 6,
-    completedUnits: 2,
+    completedUnits: 0,
   },
   {
     id: 'toc-midsem',
@@ -32,7 +32,7 @@ export const DEFAULT_EXAMS = [
     barColor: 'bg-emerald-500',
     type: 'Midsem (MSE)',
     totalUnits: 9,
-    completedUnits: 2,
+    completedUnits: 0,
   },
   {
     id: 'cns-assessment',
@@ -48,7 +48,7 @@ export const DEFAULT_EXAMS = [
     barColor: 'bg-sky-500',
     type: 'Theory (ISE)',
     totalUnits: 6,
-    completedUnits: 2,
+    completedUnits: 0,
   },
   {
     id: 'se-endsem',
@@ -64,7 +64,7 @@ export const DEFAULT_EXAMS = [
     barColor: 'bg-purple-500',
     type: 'Endsem (ESE)',
     totalUnits: 6,
-    completedUnits: 2,
+    completedUnits: 0,
   },
   {
     id: 'aisc-endsem',
@@ -80,7 +80,7 @@ export const DEFAULT_EXAMS = [
     barColor: 'bg-rose-500',
     type: 'Endsem (ESE)',
     totalUnits: 6,
-    completedUnits: 2,
+    completedUnits: 0,
   }
 ];
 

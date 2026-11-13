@@ -96,8 +96,8 @@ export default function Dashboard({
   const allTopics = readinessData?.all_topics || [];
   const urgentTopic = readinessData?.urgent_topics?.[0] || allTopics[1] || allTopics[0];
   const secondTopic = allTopics[2] || allTopics[0];
-  const readinessPct = Math.round(readinessData?.overall_readiness_index || currentSubject?.overall_readiness || 28);
-  const completedChapters = readinessData?.completed_chapters_count || 2;
+  const readinessPct = Math.round(readinessData?.overall_readiness_index ?? currentSubject?.overall_readiness ?? 0);
+  const completedChapters = readinessData?.completed_chapters_count ?? 0;
   const totalChapters = readinessData?.total_chapters_count || 6;
 
   return (
@@ -163,7 +163,7 @@ export default function Dashboard({
             <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden mb-2">
               <div 
                 className="bg-accentNavy h-2.5 rounded-full transition-all duration-700"
-                style={{ width: `${Math.max(12, readinessPct)}%` }}
+                style={{ width: `${readinessPct}%` }}
               />
             </div>
             <div className="flex items-center justify-between text-[11px] font-semibold text-gray-400">
