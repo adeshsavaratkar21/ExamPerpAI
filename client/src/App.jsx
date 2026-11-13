@@ -73,19 +73,19 @@ export default function App() {
   const restoreUserProgress = async (user) => {
     if (!user || !user.email) return;
     try {
-      // 1. Fetch saved progress from backend
-      const res = await api.getUserProgress(user.email);
+      // 1. Fetch saved progress from backend (non-blocking)
+      const res = await api.getUserProgress(user.email).catch(() => ({ data: {} }));
       const backendProgress = res.data?.progress || {};
 
-      // 2. Also check local storage for user-scoped data
-      const localTasks = JSON.parse(localStorage.getItem(`examprep_tasks_${user.email}`) || 'null');
-      const localExams = JSON.parse(localStorage.getItem(`examprep_exams_${user.email}`) || 'null');
-      const localProfile = JSON.parse(localStorage.getItem(`examprep_profile_${user.email}`) || 'null');
+      // 2. Check local storage for user-scoped data
+      const localTasks = JSON.parse(localStorage.getItem(`examprep_tasks_${user.email}`) || localStorage.getItem('examprep_daily_tasks') || 'null');
+      const localExams = JSON.parse(localStorage.getItem(`examprep_exams_${user.email}`) || localStorage.getItem('examprep_upcoming_exams') || 'null');
+      const localProfile = JSON.parse(localStorage.getItem(`examprep_profile_${user.email}`) || localStorage.getItem('examprep_student_profile') || 'null');
 
-      // Tasks: backend takes precedence if non-empty, otherwise local
-      const effectiveTasks = (backendProgress.tasks && backendProgress.tasks.length > 0)
-        ? backendProgress.tasks
-        : (localTasks || null);
+      // Tasks: Local edits on this device take precedence! If null, restore from backend.
+      const effectiveTasks = (localTasks && localTasks.length > 0)
+        ? localTasks
+        : (backendProgress.tasks && backendProgress.tasks.length > 0 ? backendProgress.tasks : null);
 
       if (effectiveTasks) {
         localStorage.setItem(`examprep_tasks_${user.email}`, JSON.stringify(effectiveTasks));
@@ -93,10 +93,10 @@ export default function App() {
         window.dispatchEvent(new CustomEvent('examprep_tasks_synced', { detail: effectiveTasks }));
       }
 
-      // Exams: backend takes precedence if non-empty, otherwise local
-      const effectiveExams = (backendProgress.upcoming_exams && backendProgress.upcoming_exams.length > 0)
-        ? backendProgress.upcoming_exams
-        : (localExams || null);
+      // Exams: Local edits on this device take precedence! If null, restore from backend.
+      const effectiveExams = (localExams && localExams.length > 0)
+        ? localExams
+        : (backendProgress.upcoming_exams && backendProgress.upcoming_exams.length > 0 ? backendProgress.upcoming_exams : null);
 
       if (effectiveExams) {
         localStorage.setItem(`examprep_exams_${user.email}`, JSON.stringify(effectiveExams));
@@ -104,28 +104,26 @@ export default function App() {
         window.dispatchEvent(new CustomEvent('examprep_exams_synced', { detail: effectiveExams }));
       }
 
-      // Profile
-      const effectiveProfile = {
-        name: user.username || backendProgress.profile?.name || localProfile?.name || studentProfile.name,
+      // Profile: Local updated profile takes precedence!
+      const effectiveProfile = localProfile || {
+        name: backendProgress.profile?.name || user.username || studentProfile.name,
         email: user.email,
-        program: user.program || backendProgress.profile?.program || localProfile?.program || studentProfile.program,
-        avatar: user.avatar || backendProgress.profile?.avatar || localProfile?.avatar || studentProfile.avatar
+        program: backendProgress.profile?.program || user.program || studentProfile.program,
+        avatar: backendProgress.profile?.avatar || user.avatar || studentProfile.avatar
       };
       setStudentProfile(effectiveProfile);
       localStorage.setItem('examprep_student_profile', JSON.stringify(effectiveProfile));
       localStorage.setItem(`examprep_profile_${user.email}`, JSON.stringify(effectiveProfile));
 
-      // Synchronize latest state back to backend if backend was empty
-      if (!backendProgress.tasks && effectiveTasks) {
-        api.saveUserProgress({
-          email: user.email,
-          progress: {
-            tasks: effectiveTasks,
-            upcoming_exams: effectiveExams,
-            profile: effectiveProfile
-          }
-        }).catch(() => {});
-      }
+      // Synchronize latest state back to backend so backend is kept in sync
+      api.saveUserProgress({
+        email: user.email,
+        progress: {
+          tasks: effectiveTasks,
+          upcoming_exams: effectiveExams,
+          profile: effectiveProfile
+        }
+      }).catch(() => {});
     } catch (err) {
       console.error('Failed to restore user progress:', err);
     }

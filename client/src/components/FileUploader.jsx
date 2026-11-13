@@ -60,11 +60,38 @@ export default function FileUploader({
     setLoadingPapers(true);
     api.getAllPapers()
       .then(res => {
-        setAllSubjectPapers(res.data?.subjects || {});
-        setTotalPapersCount(res.data?.total_papers_all_subjects || 0);
+        const backendSubjects = res.data?.subjects || {};
+        const localCached = JSON.parse(localStorage.getItem('examprep_cached_papers') || '{}');
+        
+        // Merge backend and local cached papers
+        const merged = { ...backendSubjects };
+        for (const [code, sData] of Object.entries(localCached)) {
+          if (!merged[code]) {
+            merged[code] = sData;
+          } else {
+            const existingIds = new Set((merged[code].papers || []).map(p => String(p.id || p.filename)));
+            const extraPapers = (sData.papers || []).filter(p => !existingIds.has(String(p.id || p.filename)));
+            merged[code] = {
+              ...merged[code],
+              papers: [...(merged[code].papers || []), ...extraPapers],
+              count: (merged[code].papers?.length || 0) + extraPapers.length
+            };
+          }
+        }
+
+        let total = 0;
+        for (const k in merged) total += (merged[k].count || 0);
+
+        setAllSubjectPapers(merged);
+        setTotalPapersCount(total);
       })
       .catch(err => {
         console.error('Failed to load all papers:', err);
+        const localCached = JSON.parse(localStorage.getItem('examprep_cached_papers') || '{}');
+        setAllSubjectPapers(localCached);
+        let total = 0;
+        for (const k in localCached) total += (localCached[k].count || 0);
+        setTotalPapersCount(total);
       })
       .finally(() => setLoadingPapers(false));
   };
@@ -135,6 +162,38 @@ export default function FileUploader({
       setUploadProgress(100);
       setExtractedResult(res.data);
       if (onQuestionsExtracted) onQuestionsExtracted(res.data);
+
+      // Save in persistent local cache so paper survives across cold starts
+      try {
+        const currentLocal = JSON.parse(localStorage.getItem('examprep_cached_papers') || '{}');
+        const subCode = (Array.isArray(subjects) ? subjects.find(s => s.id === Number(uploadSubjectId))?.code : null) || activeSubCode;
+        const newPaper = {
+          id: res.data.doc_id || Date.now(),
+          subject_id: uploadSubjectId,
+          subject_code: subCode,
+          filename: file.name,
+          title: `${subCode} ${examYear} ${examSession} Question Paper`,
+          exam_year: examYear,
+          exam_type: examSession,
+          exam_tag: examSession.includes('Mid') ? 'MSE' : (examSession.includes('Re') ? 'KT' : 'ESE'),
+          month: 'University Examination',
+          file_url: `/api/pyq/documents/${res.data.doc_id || 1}/view`,
+          file_size: (file.size / (1024 * 1024)).toFixed(1) + ' MB',
+          is_official: true,
+          total_questions: res.data.total_extracted || 0
+        };
+
+        if (!currentLocal[subCode]) {
+          currentLocal[subCode] = { count: 1, papers: [newPaper], subject_name: subCode, subject_code: subCode };
+        } else {
+          currentLocal[subCode].papers = [newPaper, ...(currentLocal[subCode].papers || [])];
+          currentLocal[subCode].count = currentLocal[subCode].papers.length;
+        }
+        localStorage.setItem('examprep_cached_papers', JSON.stringify(currentLocal));
+      } catch (cacheErr) {
+        console.warn('Paper cache note:', cacheErr);
+      }
+
       loadPapers(); // Refresh library
     } catch (err) {
       console.error('Upload error:', err);
@@ -148,7 +207,18 @@ export default function FileUploader({
     if (!paperId) return;
     if (!window.confirm('Are you sure you want to delete this question paper?')) return;
     try {
-      await api.deletePYQDocument(paperId);
+      await api.deletePYQDocument(paperId).catch(() => {});
+      
+      // Also remove from local cache
+      try {
+        const currentLocal = JSON.parse(localStorage.getItem('examprep_cached_papers') || '{}');
+        if (currentLocal[activeSubCode]) {
+          currentLocal[activeSubCode].papers = (currentLocal[activeSubCode].papers || []).filter(p => p.id !== paperId);
+          currentLocal[activeSubCode].count = currentLocal[activeSubCode].papers.length;
+          localStorage.setItem('examprep_cached_papers', JSON.stringify(currentLocal));
+        }
+      } catch (e) {}
+
       loadPapers();
     } catch (err) {
       console.error('Failed to delete paper:', err);
@@ -333,11 +403,14 @@ export default function FileUploader({
               Your PYQ repository is currently clean. Upload your official university exam question papers below to extract questions and build your authentic past paper bank.
             </p>
             <button
-              onClick={() => setShowUploadZone(true)}
-              className="mt-4 px-5 py-2.5 rounded-2xl bg-gray-950 text-white text-xs font-black hover:bg-black transition-all shadow-sm inline-flex items-center gap-2"
+              onClick={() => {
+                setShowUploadZone(true);
+                fileInputRef.current?.click();
+              }}
+              className="mt-4 px-6 py-3 rounded-2xl bg-gray-950 hover:bg-black text-white text-xs font-black transition-all shadow-sm inline-flex items-center gap-2.5 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
             >
               <UploadCloud className="w-4 h-4 text-accentYellow" />
-              <span>Upload PYQ Paper Now</span>
+              <span>Select & Upload Question Paper (PDF)</span>
             </button>
           </div>
         ) : (
@@ -477,15 +550,48 @@ export default function FileUploader({
                 <p className="text-xs text-emerald-700 font-semibold mt-1">
                   Ready to process ({(file.size / (1024 * 1024)).toFixed(2)} MB)
                 </p>
+                <div className="mt-3 flex items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white border border-gray-300 text-gray-800 hover:bg-gray-100 shadow-2xs cursor-pointer"
+                  >
+                    Change File
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFile(null);
+                    }}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-50 text-rose-600 hover:bg-rose-100 shadow-2xs cursor-pointer"
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
             ) : (
               <div>
-                <p className="text-sm font-bold text-gray-900">
+                <p className="text-sm font-extrabold text-gray-900">
                   Drag & Drop University Question Paper PDF here
                 </p>
-                <p className="text-xs text-gray-400 mt-1">
-                  or click to browse files from your computer
+                <p className="text-xs text-gray-400 mt-1 mb-3">
+                  Supported format: Official University Exam Question Paper (*.pdf)
                 </p>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    fileInputRef.current?.click();
+                  }}
+                  className="px-5 py-2.5 rounded-2xl bg-gray-950 text-white hover:bg-black text-xs font-extrabold shadow-sm inline-flex items-center gap-2 cursor-pointer transition-transform hover:scale-105 active:scale-95"
+                >
+                  <UploadCloud className="w-4 h-4 text-accentYellow" />
+                  <span>Browse & Select PDF</span>
+                </button>
               </div>
             )}
           </div>
@@ -540,15 +646,39 @@ export default function FileUploader({
 
             <div className="flex items-end">
               <button
-                onClick={handleUpload}
-                disabled={isUploading || !file}
-                className={`w-full py-2.5 px-4 rounded-xl text-xs font-extrabold shadow-sm transition-all ${
-                  file && !isUploading
-                    ? 'bg-accentYellow hover:bg-accentYellowHover text-gray-950 cursor-pointer'
-                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                type="button"
+                onClick={() => {
+                  if (!file) {
+                    fileInputRef.current?.click();
+                  } else {
+                    handleUpload();
+                  }
+                }}
+                disabled={isUploading}
+                className={`w-full py-2.5 px-4 rounded-xl text-xs font-extrabold shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                  isUploading
+                    ? 'bg-amber-100 text-amber-900 cursor-wait'
+                    : file
+                    ? 'bg-accentYellow hover:bg-accentYellowHover text-gray-950 hover:scale-[1.02] active:scale-[0.98]'
+                    : 'bg-gray-900 hover:bg-black text-white hover:scale-[1.02] active:scale-[0.98]'
                 }`}
               >
-                {isUploading ? `Extracting (${uploadProgress}%)...` : 'Extract & Categorize PYQ'}
+                {isUploading ? (
+                  <>
+                    <Sparkles className="w-4 h-4 animate-spin text-gray-950" />
+                    <span>Extracting Questions ({uploadProgress}%)...</span>
+                  </>
+                ) : file ? (
+                  <>
+                    <UploadCloud className="w-4 h-4 text-gray-950" />
+                    <span>Extract & Categorize PYQ</span>
+                  </>
+                ) : (
+                  <>
+                    <UploadCloud className="w-4 h-4 text-amber-300" />
+                    <span>Choose PDF File to Upload</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

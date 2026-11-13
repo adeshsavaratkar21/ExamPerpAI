@@ -32,15 +32,41 @@ export default function SyllabusPage({
     setLoading(true);
     try {
       const res = await api.getReadinessReport(selectedSubjectId);
-      setReport(res.data);
-      setTotalMarks(res.data.total_marks || 100);
-      setChapterWeights(
-        (res.data.all_topics || []).map(t => ({
-          chapter_id: t.chapter_id,
-          name: t.chapter_name,
-          weightage_marks: t.weightage_marks
-        }))
-      );
+      const data = res.data;
+
+      // Overlay locally saved completed chapters so they persist across refreshes
+      const storageKey = `examprep_completed_chapters_${selectedSubjectId}`;
+      const localCompleted = JSON.parse(localStorage.getItem(storageKey) || 'null');
+      if (localCompleted && Array.isArray(localCompleted)) {
+        const completedSet = new Set(localCompleted);
+        data.all_topics = (data.all_topics || []).map(t => ({
+          ...t,
+          is_completed: completedSet.has(t.chapter_id)
+        }));
+        const count = data.all_topics.filter(t => t.is_completed).length;
+        data.overall_readiness_index = data.all_topics.length > 0
+          ? Math.round((count / data.all_topics.length) * 100)
+          : data.overall_readiness_index;
+      }
+
+      // Overlay locally saved custom weights
+      const weightKey = `examprep_weightage_${selectedSubjectId}`;
+      const localWeights = JSON.parse(localStorage.getItem(weightKey) || 'null');
+
+      setReport(data);
+      setTotalMarks(data.total_marks || 100);
+
+      if (localWeights && Array.isArray(localWeights) && localWeights.length > 0) {
+        setChapterWeights(localWeights);
+      } else {
+        setChapterWeights(
+          (data.all_topics || []).map(t => ({
+            chapter_id: t.chapter_id,
+            name: t.chapter_name,
+            weightage_marks: t.weightage_marks
+          }))
+        );
+      }
     } catch (err) {
       console.error('Failed to load readiness report:', err);
     } finally {
@@ -82,6 +108,10 @@ export default function SyllabusPage({
         }))
       };
 
+      // Save locally immediately
+      const weightKey = `examprep_weightage_${selectedSubjectId}`;
+      localStorage.setItem(weightKey, JSON.stringify(chapterWeights));
+
       const res = await api.updateWeightage(payload);
       setReport(res.data);
       setSaveSuccess(true);
@@ -97,8 +127,37 @@ export default function SyllabusPage({
 
   const handleToggleComplete = async (chapterId) => {
     try {
-      await api.toggleChapterComplete(chapterId);
-      await loadData();
+      const storageKey = `examprep_completed_chapters_${selectedSubjectId}`;
+      const completedList = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      const completedSet = new Set(completedList);
+
+      if (completedSet.has(chapterId)) {
+        completedSet.delete(chapterId);
+      } else {
+        completedSet.add(chapterId);
+      }
+
+      const nextList = Array.from(completedSet);
+      localStorage.setItem(storageKey, JSON.stringify(nextList));
+
+      // Instant UI update without waiting
+      setReport(prev => {
+        if (!prev) return prev;
+        const allTopics = (prev.all_topics || []).map(t =>
+          t.chapter_id === chapterId ? { ...t, is_completed: completedSet.has(chapterId) } : t
+        );
+        const count = allTopics.filter(t => t.is_completed).length;
+        const readinessIndex = allTopics.length > 0 ? Math.round((count / allTopics.length) * 100) : 0;
+        return {
+          ...prev,
+          all_topics: allTopics,
+          overall_readiness_index: readinessIndex
+        };
+      });
+
+      // Background sync to backend
+      api.toggleChapterComplete(chapterId).catch(() => {});
+      if (refreshSubjects) refreshSubjects();
     } catch (err) {
       console.error('Failed to toggle completion:', err);
     }
