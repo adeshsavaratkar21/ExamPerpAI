@@ -122,10 +122,10 @@ export default function Sidebar({
           {/* Student Info */}
           <div className="min-w-0 flex-1">
             <p className="text-xs font-extrabold text-gray-900 truncate group-hover:text-gray-950">
-              {studentProfile?.name || 'Student'}
+              {(!studentProfile?.name || /adesh|savaratkar/i.test(studentProfile.name)) ? 'Student User' : studentProfile.name}
             </p>
             <p className="text-[10px] text-gray-400 truncate font-medium">
-              {studentProfile?.email || 'student@university.edu'}
+              {(!studentProfile?.email || /adesh|savaratkar/i.test(studentProfile.email)) ? 'student@university.edu' : studentProfile.email}
             </p>
           </div>
 

@@ -29,7 +29,7 @@ class PDFService:
                             cleaned_page = PDFService._clean_page_text(page_text)
                             extracted_text.append(f"--- Page {page_num + 1} ---\n{cleaned_page}")
             except Exception as e2:
-                raise ValueError(f"Failed to extract text from PDF: {str(e2)}")
+                print(f"[pdf_service] Warning: Both pypdf and pdfplumber encountered an issue ({e2}). Treating as scanned/image PDF.")
 
         combined_text = "\n\n".join(extracted_text)
         if not combined_text.strip():

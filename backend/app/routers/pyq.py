@@ -3,6 +3,7 @@ import re
 import shutil
 import json
 import base64
+import uuid
 import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, Query, Response
@@ -104,7 +105,7 @@ async def upload_pyq_document(
 
     subject_folder = os.path.join(settings.UPLOAD_DIR, subject.code or f"subject_{subject_id}")
     os.makedirs(subject_folder, exist_ok=True)
-    safe_filename = f"{subject_id}_{int(os.times().elapsed)}_{file.filename.replace(' ', '_')}"
+    safe_filename = f"{subject_id}_{uuid.uuid4().hex[:8]}_{file.filename.replace(' ', '_')}"
     file_path = os.path.join(subject_folder, safe_filename)
 
     with open(file_path, "wb") as buffer:
@@ -113,7 +114,7 @@ async def upload_pyq_document(
     try:
         extracted_text = pdf_service.extract_text(file_path)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"PDF extraction failed: {str(e)}")
+        extracted_text = f"Note: Scanned or image-based PDF document detected. ({str(e)})"
 
     chapters = db.query(models.Chapter).filter(models.Chapter.subject_id == subject_id).order_by(models.Chapter.unit_number.asc()).all()
     chapter_names = [f"Unit {ch.unit_number}: {ch.name}" for ch in chapters]
@@ -236,7 +237,7 @@ async def upload_pyq_documents_batch(
         if not file_item.filename.lower().endswith(".pdf"):
             continue
 
-        safe_filename = f"{subject_id}_{int(os.times().elapsed)}_{file_item.filename.replace(' ', '_')}"
+        safe_filename = f"{subject_id}_{uuid.uuid4().hex[:8]}_{file_item.filename.replace(' ', '_')}"
         file_path = os.path.join(subject_folder, safe_filename)
 
         with open(file_path, "wb") as buffer:

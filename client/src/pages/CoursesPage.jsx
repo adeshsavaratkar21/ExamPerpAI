@@ -12,6 +12,8 @@ import {
   Layers, 
   Sparkles, 
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   GraduationCap,
   Calendar,
   AlertCircle,
@@ -25,6 +27,7 @@ import ReferenceBooksModal from '../components/ReferenceBooksModal';
 import YouTubeLecturesModal from '../components/YouTubeLecturesModal';
 import UnitReferenceMaterialModal from '../components/UnitReferenceMaterialModal';
 import UnitPYQModal from '../components/UnitPYQModal';
+import MarkdownRenderer from '../components/MarkdownRenderer';
 
 export default function CoursesPage({
   selectedSubjectId,
@@ -45,6 +48,11 @@ export default function CoursesPage({
   const [searchQuery, setSearchQuery] = useState('');
   const [subjectDetail, setSubjectDetail] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [courseQuestions, setCourseQuestions] = useState([]);
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
+  const [expandedUnitPYQMap, setExpandedUnitPYQMap] = useState({ 1: true, 2: true, 3: true, 4: true, 5: true, 6: true });
+  const [expandedAnswersMap, setExpandedAnswersMap] = useState({});
+  const [markingPYQMap, setMarkingPYQMap] = useState({});
 
   // Sync active folder when selectedSubjectId changes from external navigation
   useEffect(() => {
@@ -63,10 +71,47 @@ export default function CoursesPage({
     'MDM': { icon: '🎓', level: 'Multidisciplinary Minor', instructor: 'Prof. Mahnoor Moably', color: 'text-sky-800 bg-sky-50 border-sky-200' }
   };
 
+  const loadCourseQuestions = async (subId) => {
+    if (!subId) return;
+    setLoadingQuestions(true);
+    try {
+      const res = await api.getQuestions({ subject_id: subId });
+      const qList = Array.isArray(res.data) ? res.data : [];
+      setCourseQuestions(qList);
+      // Auto expand all units
+      setExpandedUnitPYQMap({ 1: true, 2: true, 3: true, 4: true, 5: true, 6: true });
+    } catch (err) {
+      console.error('Failed to load subject questions:', err);
+      setCourseQuestions([]);
+    } finally {
+      setLoadingQuestions(false);
+    }
+  };
+
+  const handleMarkUnitPYQDone = async (chapterId) => {
+    if (!chapterId || markingPYQMap[chapterId]) return;
+    setMarkingPYQMap(prev => ({ ...prev, [chapterId]: true }));
+    try {
+      const res = await api.markChapterPYQPracticed(chapterId);
+      setSubjectDetail(prev => {
+        if (!prev) return prev;
+        const updatedChapters = (prev.chapters || []).map(ch => 
+          ch.id === chapterId ? { ...ch, pyq_done: true, is_completed: res.data?.is_completed ?? ch.is_completed } : ch
+        );
+        return { ...prev, chapters: updatedChapters };
+      });
+    } catch (err) {
+      console.error('Failed to mark PYQ practiced:', err);
+    } finally {
+      setMarkingPYQMap(prev => ({ ...prev, [chapterId]: false }));
+    }
+  };
+
   // When a folder is opened, fetch full details (including exam marking scheme & topics)
   useEffect(() => {
     if (!activeFolderId) {
       setSubjectDetail(null);
+      setCourseQuestions([]);
       return;
     }
 
@@ -79,6 +124,8 @@ export default function CoursesPage({
         console.error('Failed to load subject detail:', err);
       })
       .finally(() => setLoadingDetail(false));
+
+    loadCourseQuestions(activeFolderId);
   }, [activeFolderId]);
 
   const filteredSubjects = subjectsArray.filter(s => {
@@ -641,6 +688,176 @@ export default function CoursesPage({
                       ))}
                     </ul>
                   </div>
+
+                  {/* ======================================================== */}
+                  {/* MODULE PAST YEAR EXAM QUESTIONS (PYQ) SECTION FOR UNIT   */}
+                  {/* ======================================================== */}
+                  {(() => {
+                    const unitQuestions = courseQuestions.filter(q => {
+                      if (q.chapter_id === ch.id) return true;
+                      const m = q.chapter_name?.match(/Unit\s*(\d+)/i);
+                      if (m && Number(m[1]) === unitNum) return true;
+                      return false;
+                    });
+                    const isExpanded = expandedUnitPYQMap[unitNum] !== false;
+
+                    return (
+                      <div 
+                        className="mt-5 pt-4 border-t border-gray-100" 
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-800">
+                              <FileText className="w-3.5 h-3.5" />
+                            </div>
+                            <h4 className="text-xs sm:text-sm font-black text-gray-900 tracking-tight">
+                              Past Exam Questions — Unit {unitNum}
+                            </h4>
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
+                              unitQuestions.length > 0
+                                ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                                : 'bg-gray-100 text-gray-600'
+                            }`}>
+                              {unitQuestions.length} Question{unitQuestions.length !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setExpandedUnitPYQMap(prev => ({ ...prev, [unitNum]: !isExpanded }));
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                            >
+                              <span>{isExpanded ? 'Hide Questions' : 'Show Questions'}</span>
+                              {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setIsPYQModalOpen(true)}
+                              className="px-2.5 py-1 rounded-lg bg-accentYellow hover:bg-amber-300 text-gray-950 text-[11px] font-black flex items-center gap-1 cursor-pointer shadow-2xs"
+                              title="Upload additional question papers"
+                            >
+                              <UploadCloud className="w-3 h-3 text-gray-950" />
+                              <span>+ Upload Papers</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Collapsible Questions List */}
+                        {isExpanded && (
+                          <div className="space-y-3 pt-1 animate-in fade-in duration-150">
+                            {unitQuestions.length === 0 ? (
+                              <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="flex items-center gap-2.5 text-amber-950">
+                                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                                  <span className="font-semibold">
+                                    No past exam questions extracted for Unit {unitNum} yet. Upload question papers at the top to extract questions verbatim.
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsPYQModalOpen(true)}
+                                  className="px-3.5 py-1.5 rounded-xl bg-accentYellow hover:bg-amber-300 text-gray-950 font-black text-xs shadow-2xs flex items-center gap-1.5 shrink-0 cursor-pointer"
+                                >
+                                  <UploadCloud className="w-3.5 h-3.5" />
+                                  <span>+ Upload Paper PDFs</span>
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="space-y-2.5">
+                                  {unitQuestions.map((q, qIdx) => {
+                                    const match = q.text?.match(/^((?:Q\.?\s*\d+\s*(?:\([a-z0-9]+\))?|\d+\s*\([a-z0-9]+\)|Question\s*\d+[:.]?))/i);
+                                    const qNumberBadge = match ? match[1] : `Q.${qIdx + 1}`;
+                                    const cleanQText = match ? q.text.substring(match[0].length).replace(/^[:\-\s]+/, '') : (q.text || '');
+                                    const isAnsExpanded = !!expandedAnswersMap[q.id];
+
+                                    return (
+                                      <div 
+                                        key={q.id || qIdx} 
+                                        className="p-3.5 sm:p-4 rounded-2xl bg-white border border-gray-200/90 shadow-2xs hover:border-gray-300 transition-all text-xs"
+                                      >
+                                        {/* Header Row: Question Number, Marks, Paper Source */}
+                                        <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
+                                          <div className="flex items-center gap-1.5 flex-wrap">
+                                            <span className="px-2.5 py-0.5 rounded-lg bg-gray-950 text-white font-black text-[11px] shadow-2xs">
+                                              {qNumberBadge}
+                                            </span>
+                                            <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-950 font-black text-[10px] border border-amber-300">
+                                              [{q.marks || 5} Marks]
+                                            </span>
+                                            <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-900 font-bold text-[10px] border border-indigo-200">
+                                              {q.exam_year ? `${q.exam_year} Endsem` : (q.source_paper || 'University Paper')}
+                                            </span>
+                                            <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 font-bold text-[10px]">
+                                              {q.question_type || 'Subjective'}
+                                            </span>
+                                          </div>
+
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setExpandedAnswersMap(prev => ({ ...prev, [q.id]: !prev[q.id] }));
+                                            }}
+                                            className="text-[11px] font-bold text-amber-700 hover:text-amber-900 flex items-center gap-1 cursor-pointer"
+                                          >
+                                            <span>{isAnsExpanded ? 'Hide Solution' : 'View Model Solution'}</span>
+                                            {isAnsExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                          </button>
+                                        </div>
+
+                                        {/* Exact Verbatim Question Text */}
+                                        <div className="font-semibold text-gray-900 text-xs sm:text-[13px] leading-relaxed pl-0.5 py-1">
+                                          <MarkdownRenderer content={cleanQText} />
+                                        </div>
+
+                                        {/* Expandable Model Solution */}
+                                        {isAnsExpanded && (
+                                          <div className="mt-3 p-3.5 rounded-xl bg-amber-50/50 border border-amber-200 text-gray-800 animate-in fade-in duration-150">
+                                            <div className="flex items-center gap-1.5 font-black text-[11px] text-amber-950 uppercase tracking-wider mb-2">
+                                              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                                              <span>University Model Answer & Scoring Points</span>
+                                            </div>
+                                            <div className="prose prose-sm max-w-none text-xs leading-relaxed text-gray-800">
+                                              <MarkdownRenderer content={q.solution || 'Key points: State definition, provide architectural block diagram, derive steps, and discuss engineering trade-offs.'} />
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+
+                                {/* Bottom Unit PYQ Completion Action */}
+                                <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gray-50/80 p-3 rounded-xl border border-gray-100">
+                                  <span className="text-[11px] text-gray-600 font-medium">
+                                    Practicing authentic exam questions satisfies Step 3 of 4 for Unit {unitNum}.
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMarkUnitPYQDone(ch.id)}
+                                    disabled={ch.pyq_done || markingPYQMap[ch.id]}
+                                    className={`px-3.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer ${
+                                      ch.pyq_done
+                                        ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                                        : 'bg-emerald-600 hover:bg-emerald-700 text-white hover:scale-105 active:scale-95'
+                                    }`}
+                                  >
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    <span>{ch.pyq_done ? 'Step 3: PYQs Done ✓' : 'Mark Unit PYQs Practiced'}</span>
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}
@@ -656,12 +873,21 @@ export default function CoursesPage({
               api.getSubjectDetail(activeFolderId)
                 .then(res => setSubjectDetail(res.data))
                 .catch(() => {});
+              loadCourseQuestions(activeFolderId);
             }
           }}
           subjectId={subjectDetail.id}
           subjectCode={subjectDetail.code}
           subjectName={subjectDetail.name}
           chapters={chapters}
+          onQuestionsUpdated={() => {
+            if (activeFolderId) {
+              api.getSubjectDetail(activeFolderId)
+                .then(res => setSubjectDetail(res.data))
+                .catch(() => {});
+              loadCourseQuestions(activeFolderId);
+            }
+          }}
           onLaunchQuiz={(chId) => onLaunchQuizForChapter(chId)}
         />
 

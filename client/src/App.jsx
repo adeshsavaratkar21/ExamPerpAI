@@ -27,10 +27,15 @@ function safeJsonParse(val, fallback = null) {
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
-    return safeJsonParse(
+    const raw = safeJsonParse(
       localStorage.getItem('examprep_auth_user') || sessionStorage.getItem('examprep_auth_user'),
       null
     );
+    if (raw && raw.username && /adesh|savaratkar/i.test(raw.username)) {
+      raw.username = 'Student User';
+      raw.email = 'student@university.edu';
+    }
+    return raw;
   });
 
   const [currentTab, setCurrentTab] = useState('dashboard');
@@ -50,9 +55,11 @@ export default function App() {
   // Student Profile state loaded from localStorage with default fallback
   const [studentProfile, setStudentProfile] = useState(() => {
     const saved = safeJsonParse(localStorage.getItem('examprep_student_profile'), null);
-    if (saved && typeof saved === 'object' && saved.name) return saved;
+    if (saved && typeof saved === 'object' && saved.name && !/adesh|savaratkar/i.test(saved.name)) {
+      return saved;
+    }
     return {
-      name: "Student",
+      name: "Student User",
       email: "student@university.edu",
       program: "Semester 5 • Computer Engineering",
       avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80"
@@ -108,11 +115,20 @@ export default function App() {
       }
 
       // Profile: Local updated profile takes precedence!
-      const effectiveProfile = localProfile || {
-        name: backendProgress.profile?.name || user.username || studentProfile.name,
-        email: user.email,
-        program: backendProgress.profile?.program || user.program || studentProfile.program,
-        avatar: backendProgress.profile?.avatar || user.avatar || studentProfile.avatar
+      let resolvedName = localProfile?.name || backendProgress.profile?.name || user.username || studentProfile.name;
+      if (!resolvedName || /adesh|savaratkar/i.test(resolvedName)) {
+        resolvedName = 'Student User';
+      }
+      let resolvedEmail = localProfile?.email || user.email || 'student@university.edu';
+      if (/adesh/i.test(resolvedEmail)) {
+        resolvedEmail = 'student@university.edu';
+      }
+
+      const effectiveProfile = {
+        name: resolvedName,
+        email: resolvedEmail,
+        program: localProfile?.program || backendProgress.profile?.program || user.program || studentProfile.program,
+        avatar: localProfile?.avatar || backendProgress.profile?.avatar || user.avatar || studentProfile.avatar
       };
       setStudentProfile(effectiveProfile);
       localStorage.setItem('examprep_student_profile', JSON.stringify(effectiveProfile));

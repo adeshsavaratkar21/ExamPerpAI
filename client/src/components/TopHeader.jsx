@@ -11,7 +11,8 @@ export default function TopHeader({
   searchQuery,
   setSearchQuery
 }) {
-  const displayName = studentProfile?.name ? studentProfile.name.split(' ')[0] : studentName;
+  const rawName = studentProfile?.name ? studentProfile.name.split(' ')[0] : studentName;
+  const displayName = (!rawName || /adesh|savaratkar/i.test(rawName)) ? 'Student' : rawName;
   return (
     <header className="mb-8">
       {/* Top Row: Greeting + Search Bar + Bell + Settings */}
