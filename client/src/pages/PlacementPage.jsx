@@ -354,7 +354,7 @@ export default function PlacementPage({ studentProfile }) {
           {/* Quick Demo Handles helper */}
           <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-2 flex-wrap text-xs">
             <span className="text-gray-400 font-bold text-[11px]">Or try a student handle:</span>
-            {['neetcode', 'tourist', 'adesh_s'].map(demo => (
+            {['neetcode', 'tourist', 'coder_dev'].map(demo => (
               <button
                 key={demo}
                 type="button"

@@ -1,7 +1,7 @@
 # ExamPrepAi 🚀
 
 [![Live Website](https://img.shields.io/badge/Live%20Website-examperpai.vercel.app-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://examperpai.vercel.app)
-[![Developer](https://img.shields.io/badge/Author-Adesh%20Savaratkar-FCE34D?style=for-the-badge&logo=github&logoColor=black)](https://github.com/adeshsavaratkar21)
+[![Open Source](https://img.shields.io/badge/Platform-Open%20Source-FCE34D?style=for-the-badge&logo=github&logoColor=black)](https://github.com/adeshsavaratkar21/ExamPerpAI)
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![React 19](https://img.shields.io/badge/Frontend-React%2019-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
@@ -9,7 +9,7 @@
 > **ExamPrepAi** is a full-stack, production-grade educational platform engineered for university semester exam mastery and technical campus placement preparation. It combines static course syllabi, past examination papers (PYQs), and prescribed textbooks with generative AI, while providing a complete 466-problem DSA roadmap, live LeetCode profile synchronization, and interactive architectural diagrams for core computer science subjects.
 
 🌐 **Live Production App:** [https://examperpai.vercel.app](https://examperpai.vercel.app)  
-👤 **Developer:** [Adesh Savaratkar (@adeshsavaratkar21)](https://github.com/adeshsavaratkar21)
+📖 **Open Source Project:** [ExamPrepAi on GitHub](https://github.com/adeshsavaratkar21/ExamPerpAI)
 
 ---
 
@@ -150,15 +150,13 @@ Open [http://localhost:5173/](http://localhost:5173/) in your browser.
 
 ---
 
-## 👨‍💻 Author & Developer Profile
+## 📖 Open Source & Community
 
-**Adesh Savaratkar**  
-*Computer Engineering Student • Sardar Patel Institute of Technology (SPIT), Mumbai*
+**ExamPrepAi Project**  
+*Comprehensive AI-Powered Engineering Exam Preparation Platform*
 
-- **GitHub:** [@adeshsavaratkar21](https://github.com/adeshsavaratkar21)
 - **Repository:** [https://github.com/adeshsavaratkar21/ExamPerpAI](https://github.com/adeshsavaratkar21/ExamPerpAI)
 - **Live Website:** [https://examperpai.vercel.app](https://examperpai.vercel.app)
-- **Email:** `adesh.savaratkar24@spit.ac.in`
 
 ---
 

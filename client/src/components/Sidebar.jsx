@@ -109,7 +109,7 @@ export default function Sidebar({
             <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-emerald-400 p-0.5 bg-gradient-to-tr from-emerald-100 to-teal-50 flex items-center justify-center group-hover:ring-2 group-hover:ring-gray-950 transition-all">
               <img 
                 src={studentProfile?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80"} 
-                alt={studentProfile?.name || 'Adesh'} 
+                alt={studentProfile?.name || 'Student'} 
                 className="w-full h-full object-cover rounded-full"
                 onError={(e) => {
                   e.currentTarget.src = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80";
@@ -122,10 +122,10 @@ export default function Sidebar({
           {/* Student Info */}
           <div className="min-w-0 flex-1">
             <p className="text-xs font-extrabold text-gray-900 truncate group-hover:text-gray-950">
-              {studentProfile?.name || 'Adesh Savaratkar'}
+              {studentProfile?.name || 'Student'}
             </p>
             <p className="text-[10px] text-gray-400 truncate font-medium">
-              {studentProfile?.email || 'adesh.savaratkar24@spit.ac.in'}
+              {studentProfile?.email || 'student@university.edu'}
             </p>
           </div>
 

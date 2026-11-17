@@ -49,8 +49,8 @@ export default function ProfileModal({
   if (!isOpen) return null;
 
   const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'history'
-  const [name, setName] = useState(currentProfile?.name || 'Adesh Savaratkar');
-  const [email, setEmail] = useState(currentProfile?.email || 'adesh.savaratkar24@spit.ac.in');
+  const [name, setName] = useState(currentProfile?.name || 'Student');
+  const [email, setEmail] = useState(currentProfile?.email || 'student@university.edu');
   const [program, setProgram] = useState(currentProfile?.program || 'Semester 5 • Computer Engineering (SPIT)');
   const [avatar, setAvatar] = useState(currentProfile?.avatar || PRESET_AVATARS[0].url);
   const [showUrlInput, setShowUrlInput] = useState(false);
@@ -360,7 +360,7 @@ export default function ProfileModal({
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Adesh Savaratkar"
+                    placeholder="Enter your Full Name"
                     className="w-full bg-white border border-gray-200 rounded-2xl py-2.5 pl-10 pr-4 text-sm text-gray-900 font-semibold focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-300 shadow-2xs"
                   />
                 </div>
@@ -376,7 +376,7 @@ export default function ProfileModal({
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="e.g. student@spit.ac.in"
+                    placeholder="student@university.edu"
                     className="w-full bg-white border border-gray-200 rounded-2xl py-2.5 pl-10 pr-4 text-sm text-gray-900 font-semibold focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-300 shadow-2xs"
                   />
                 </div>
@@ -398,22 +398,22 @@ export default function ProfileModal({
                 </div>
               </div>
 
-              {/* GitHub Developer Profile */}
+              {/* GitHub Open Source Project */}
               <div className="pt-1">
                 <a
-                  href="https://github.com/adeshsavaratkar21"
+                  href="https://github.com/adeshsavaratkar21/ExamPerpAI"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full flex items-center justify-between p-3 rounded-2xl bg-[#F8F9FD] border border-gray-200/80 hover:border-gray-300 hover:bg-gray-100/70 transition-all group"
-                  title="Open GitHub Profile"
+                  title="Open GitHub Repository"
                 >
                   <div className="flex items-center gap-2.5">
                     <div className="w-7 h-7 rounded-xl bg-gray-950 text-white flex items-center justify-center shrink-0">
                       <GithubIcon className="w-4 h-4" />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-gray-900 leading-tight">Adesh Savaratkar</p>
-                      <p className="text-[10px] text-gray-500 font-medium">github.com/adeshsavaratkar21</p>
+                      <p className="text-xs font-bold text-gray-900 leading-tight">ExamPrepAI Project</p>
+                      <p className="text-[10px] text-gray-500 font-medium">Open Source AI Study Platform</p>
                     </div>
                   </div>
                   <ExternalLink className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-900 transition-colors" />

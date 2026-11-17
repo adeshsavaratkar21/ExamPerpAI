@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db.database import get_db
 from app.db import models
+from app.schemas import schemas
 
 router = APIRouter(prefix="/books", tags=["Reference Books"])
 
@@ -427,4 +428,72 @@ def delete_reference_book(
     return {
         "success": True,
         "message": f"Removed '{clean_name}' from {sub_code} reference books."
+    }
+
+
+@router.post("/add-by-path")
+def add_reference_book_by_path(
+    payload: schemas.BookPathAddRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Imports textbook PDF or PowerPoint presentation (.ppt, .pptx) from a local filesystem path
+    or directory into the subject's books directory.
+    """
+    subject = db.query(models.Subject).filter(models.Subject.id == payload.subject_id).first()
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+
+    sub_code = (subject.code or f"SUB_{subject.id}").upper()
+    books_dir = _get_books_directory(sub_code)
+
+    raw_path = (payload.path or "").strip().strip('"').strip("'")
+    if not raw_path:
+        raise HTTPException(status_code=400, detail="Path cannot be empty")
+
+    normalized_path = os.path.abspath(raw_path)
+    if not os.path.exists(normalized_path):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Path not found: '{raw_path}'. Please verify the file or directory exists on your computer."
+        )
+
+    ALLOWED_EXTS = (".pdf", ".ppt", ".pptx")
+    imported_files = []
+
+    if os.path.isfile(normalized_path):
+        ext = os.path.splitext(normalized_path)[1].lower()
+        if ext not in ALLOWED_EXTS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported file type '{ext}'. Only .pdf, .ppt, and .pptx are supported."
+            )
+        base_name = os.path.basename(normalized_path)
+        dest_filename = base_name.replace(" ", "_")
+        dest_path = os.path.join(books_dir, dest_filename)
+        shutil.copy2(normalized_path, dest_path)
+        imported_files.append(dest_filename)
+    elif os.path.isdir(normalized_path):
+        for root, _, files in os.walk(normalized_path):
+            for f in files:
+                ext = os.path.splitext(f)[1].lower()
+                if ext in ALLOWED_EXTS:
+                    src = os.path.join(root, f)
+                    dest_filename = f.replace(" ", "_")
+                    dest_path = os.path.join(books_dir, dest_filename)
+                    shutil.copy2(src, dest_path)
+                    imported_files.append(dest_filename)
+
+    if not imported_files:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No valid textbook files (.pdf, .ppt, .pptx) were found at '{raw_path}'."
+        )
+
+    return {
+        "success": True,
+        "message": f"Successfully imported {len(imported_files)} material(s) for {sub_code}!",
+        "imported_files": imported_files,
+        "count": len(imported_files),
+        "target_folder": os.path.abspath(books_dir)
     }

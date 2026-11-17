@@ -8,18 +8,21 @@ import {
   Sparkles,
   AlertCircle,
   HelpCircle,
-  BookOpen
+  BookOpen,
+  FileText
 } from 'lucide-react';
 import ConceptTutorTab from './ConceptTutorTab';
 import TutorChatTab from './TutorChatTab';
 import RevisionSheetTab from './RevisionSheetTab';
 import UnitReferenceMaterialModal from './UnitReferenceMaterialModal';
+import UnitPYQSection from './UnitPYQSection';
 import api from '../services/api';
 
 const TABS = [
   { id: 'tutor', label: 'Concept Tutor', icon: Brain },
-  { id: 'chat', label: 'AI Doubt Solver', icon: MessageSquareQuote },
   { id: 'sheet', label: 'Revision Sheet', icon: ScrollText },
+  { id: 'pyq', label: 'Unit PYQs', icon: FileText },
+  { id: 'chat', label: 'AI Doubt Solver', icon: MessageSquareQuote },
 ];
 
 export default function MasteryRevisionSuite({
@@ -261,6 +264,17 @@ export default function MasteryRevisionSuite({
             errorMsg={sheetError}
             isModuleCompleted={isModuleCompleted}
             onGenerate={handleGenerateRevisionSheet}
+          />
+        )}
+
+        {activeTab === 'pyq' && (
+          <UnitPYQSection
+            chapterId={selectedChapterId}
+            chapterName={chapterName}
+            subjectId={selectedSubjectId}
+            subjectName={subjectName}
+            onPyqCompleted={() => {}}
+            onNavigateToQuiz={onNavigateToQuiz}
           />
         )}
       </div>

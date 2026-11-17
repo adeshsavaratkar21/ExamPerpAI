@@ -49,9 +49,9 @@ export default function App() {
       console.error('Failed to load student profile:', e);
     }
     return {
-      name: "Adesh Savaratkar",
-      email: "adesh.savaratkar24@spit.ac.in",
-      program: "Semester 5 • Computer Engineering (SPIT)",
+      name: "Student",
+      email: "student@university.edu",
+      program: "Semester 5 • Computer Engineering",
       avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80"
     };
   });

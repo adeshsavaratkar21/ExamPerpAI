@@ -23,6 +23,7 @@ import SubjectPYQModal from '../components/SubjectPYQModal';
 import ReferenceBooksModal from '../components/ReferenceBooksModal';
 import YouTubeLecturesModal from '../components/YouTubeLecturesModal';
 import UnitReferenceMaterialModal from '../components/UnitReferenceMaterialModal';
+import UnitPYQModal from '../components/UnitPYQModal';
 
 export default function CoursesPage({
   selectedSubjectId,
@@ -38,6 +39,7 @@ export default function CoursesPage({
   const [isBooksModalOpen, setIsBooksModalOpen] = useState(false);
   const [youtubeModalChapter, setYoutubeModalChapter] = useState(null);
   const [refModalChapter, setRefModalChapter] = useState(null);
+  const [pyqModalChapter, setPyqModalChapter] = useState(null);
   const [courseFilter, setCourseFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [subjectDetail, setSubjectDetail] = useState(null);
@@ -440,6 +442,19 @@ export default function CoursesPage({
                         <span>PPT</span>
                       </button>
 
+                      {/* Module-Wise PYQs Section Trigger */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPyqModalChapter(ch);
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-950 font-bold text-xs transition-colors flex items-center gap-1 cursor-pointer border border-emerald-200 shadow-2xs"
+                        title="Module-wise past exam questions, solutions, and paper uploader"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>PYQs</span>
+                      </button>
+
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -525,27 +540,16 @@ export default function CoursesPage({
                           {/* Step 3: PYQs */}
                           <button
                             type="button"
-                            onClick={async (e) => {
+                            onClick={(e) => {
                               e.stopPropagation();
-                              try {
-                                const res = await api.markChapterPYQPracticed(ch.id);
-                                setSubjectDetail(prev => {
-                                  if (!prev) return prev;
-                                  return {
-                                    ...prev,
-                                    chapters: (prev.chapters || []).map(item => item.id === ch.id ? { ...item, pyq_done: true, is_completed: res.data.is_completed } : item)
-                                  };
-                                });
-                              } catch (err) {
-                                console.error(err);
-                              }
+                              setPyqModalChapter(ch);
                             }}
                             className={`px-2.5 py-1 rounded-lg text-[11px] font-black flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer ${
                               pDone
                                 ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
                                 : 'bg-white text-gray-700 border border-gray-200 hover:border-emerald-400 hover:text-emerald-800'
                             }`}
-                            title="Step 3: Click to mark past-year practice completed"
+                            title="Step 3: Module PYQ Practice & Question Extractor"
                           >
                             <FileText className={`w-3.5 h-3.5 ${pDone ? 'text-emerald-700' : 'text-gray-400'}`} />
                             <span>3. PYQs {pDone ? '✓' : ''}</span>
@@ -661,6 +665,32 @@ export default function CoursesPage({
           onGenerateNotes={(chId) => {
             if (setSelectedSubjectId && activeFolderId) setSelectedSubjectId(activeFolderId);
             if (onViewNotesForChapter) onViewNotesForChapter(chId);
+          }}
+        />
+
+        {/* Unit PYQ Section Modal (Module-Wise Questions & Paper Ingestion) */}
+        <UnitPYQModal
+          isOpen={!!pyqModalChapter}
+          onClose={() => setPyqModalChapter(null)}
+          chapterId={pyqModalChapter?.id}
+          chapterName={pyqModalChapter?.name}
+          subjectId={subjectDetail.id}
+          subjectCode={subjectDetail.code}
+          subjectName={subjectDetail.name}
+          onPyqCompleted={(chId, resData) => {
+            setSubjectDetail(prev => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                chapters: (prev.chapters || []).map(item =>
+                  item.id === chId ? { ...item, pyq_done: true, is_completed: resData.is_completed } : item
+                )
+              };
+            });
+          }}
+          onNavigateToQuiz={(chId) => {
+            if (setSelectedSubjectId && activeFolderId) setSelectedSubjectId(activeFolderId);
+            if (onLaunchQuizForChapter) onLaunchQuizForChapter(chId);
           }}
         />
       </div>

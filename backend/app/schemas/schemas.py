@@ -293,8 +293,8 @@ class TutorChatMessage(BaseModel):
 
 
 class TutorChatRequest(BaseModel):
-    subject_id: int
-    chapter_id: int
+    subject_id: Optional[int] = None
+    chapter_id: Optional[int] = None
     message: str
     history: Optional[List[TutorChatMessage]] = []
     current_topic: Optional[str] = None
@@ -303,6 +303,25 @@ class TutorChatRequest(BaseModel):
 class TutorChatResponse(BaseModel):
     reply: str
     suggested_questions: Optional[List[str]] = []
+    grounding_info: Optional[Dict[str, Any]] = None
+
+
+class BookPathAddRequest(BaseModel):
+    subject_id: int
+    path: str
+    custom_title: Optional[str] = None
+
+
+class PYQPathAddRequest(BaseModel):
+    subject_id: int
+    path: str
+    exam_year: Optional[str] = "2024"
+    exam_session: Optional[str] = "End-Semester"
+
+
+class UnitMaterialPathAddRequest(BaseModel):
+    path: str
+    material_type: Optional[str] = "Lecture PPT"
 
 
 # ---------------- USER AUTH SCHEMAS ---------------- #

@@ -204,46 +204,58 @@ Return strictly a valid JSON array:
         student_message: str,
         chat_history: Optional[List[Dict[str, str]]] = None,
         book_context: str = "",
+        ppt_context: str = "",
+        pyq_context: str = "",
         current_topic: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Answers a student's conceptual doubt for a specific chapter and subject,
-        grounded in college textbooks and curriculum knowledge.
+        Answers a student's question or conceptual doubt for a specific chapter and subject,
+        deeply grounded by analyzing college textbooks, lecture PPT slides, and past year questions (PYQs).
         """
         conversation_context = ""
         if chat_history:
             formatted_history = []
-            for h in chat_history[-4:]:  # last 4 turns for context
+            for h in chat_history[-6:]:  # last 6 turns for conversational continuity
                 role = "Student" if h.get("role") == "user" else "Tutor"
                 formatted_history.append(f"{role}: {h.get('content')}")
             conversation_context = "\nRecent Conversation:\n" + "\n".join(formatted_history)
 
         book_prompt_section = ""
         if book_context:
-            book_prompt_section = f"\nRelevant College Textbook & Lecture PPT Excerpts:\n```\n{book_context[:3000]}\n```\n"
+            book_prompt_section = f"\nRelevant College Prescribed Textbooks & Excerpts:\n```\n{book_context[:2500]}\n```\n"
+
+        ppt_prompt_section = ""
+        if ppt_context:
+            ppt_prompt_section = f"\nRelevant Lecture PPT Slide Notes & Reference Materials:\n```\n{ppt_context[:2000]}\n```\n"
+
+        pyq_prompt_section = ""
+        if pyq_context:
+            pyq_prompt_section = f"\nRelevant Past Year Exam Questions (PYQ Papers & Marks Weightage):\n```\n{pyq_context[:2000]}\n```\n"
 
         prompt = f"""You are an inspiring, warm, and highly relatable university professor and AI study partner for the subject "{subject_name}".
-The student is studying the chapter "{chapter_name}" and has sent you the following message:
+The student is studying "{chapter_name}" and has sent you the following query:
 
-Student Message:
+Student Query:
 "{student_message}"
 
 {book_prompt_section}
+{ppt_prompt_section}
+{pyq_prompt_section}
 {conversation_context}
 
-IMPORTANT GUIDELINES:
-1. Tone: Warm, humanized, empathetic, engaging, and encouraging. Never sound like a robotic template. Talk like a friendly professor or study buddy.
-2. If the student is greeting you ("hi", "hello", "hey", etc.) or asking what to study:
-   - Greet them warmly and enthusiastically.
-   - Introduce yourself as their dedicated AI tutor for "{chapter_name}".
-   - Highlight 3-4 key high-yield topics they can ask about from this chapter.
-3. If the student has a conceptual doubt:
-   - Start with a simple, intuitive real-world analogy so the concept clicks immediately.
-   - Explain the formal academic definition and mathematical formulations (using standard LaTeX $...$ and $$...$$).
-   - Walk through a concrete numerical calculation, trace table, or worked example.
-   - Share a critical "Professor's Exam Trap" to watch out for in university exams.
-   - Mention how this topic is typically asked in 5-mark and 10-mark questions.
-4. Ground your answer in the official syllabus, textbooks, and lecture PPT slides provided.
+CRITICAL PEDAGOGICAL & GROUNDING GUIDELINES:
+1. Tone: Natural, conversational, warm, empathetic, and encouraging. Never sound like a rigid template. Answer ANY normal question asked naturally and directly (whether greetings, conceptual doubts, coding queries, derivations, or exam preparation advice).
+2. Grounded Tri-Source Analysis:
+   - 📖 Textbooks: Cite and incorporate formal definitions, architectural principles, or theorems from prescribed university textbooks.
+   - 📊 Lecture PPTs: Weave in key lecture takeaways, bullet points, and slide diagrams discussed in class.
+   - 📝 PYQs & Past Papers: Address how this topic appears in actual university exams (5-mark vs 10-mark questions), what examiners look for, and how to structure a full-marks response.
+3. Clarity & Math:
+   - Provide an intuitive real-world analogy to make abstract concepts click.
+   - Format all mathematical expressions and formulas cleanly using standard LaTeX ($...$ inline and $$...$$ block).
+   - If relevant, include a concrete worked numerical or trace example.
+   - Highlight a "Professor's Exam Trap" to protect the student from tricky mistakes.
+4. If the student asks a general question or greeting:
+   - Respond warmly and naturally, offering guidance on what they can explore in {subject_name} and {chapter_name}.
 
 End your reply with a JSON array on a new line formatted exactly as:
 SUGGESTIONS: ["Suggested Follow-up Question 1", "Suggested Follow-up Question 2", "Suggested Follow-up Question 3"]
@@ -477,6 +489,25 @@ Soft computing is not a single methodology; it is a synergistic partnership:
                     ]
                 }
 
+        # Dynamically build grounding sections for the fallback
+        grounding_sections = []
+        if book_context:
+            grounding_sections.append(f"""#### 📖 Prescribed Textbook Insights
+{book_context[:600].strip()}
+*(Reference: University Prescribed Curriculum Textbooks)*""")
+
+        if ppt_context:
+            grounding_sections.append(f"""#### 📊 Lecture PPT Slide Key Points
+{ppt_context[:500].strip()}
+*(From Professor's Class PPTs & Unit Reference Materials)*""")
+
+        if pyq_context:
+            grounding_sections.append(f"""#### 📝 Past Year Exam (PYQ) Questions & Weightage
+{pyq_context[:600].strip()}
+*(Past Exam Analysis: Focus on 5-Mark Differences and 10-Mark State Flow / Algorithm Proofs)*""")
+
+        grounding_md = "\n\n" + "\n\n".join(grounding_sections) if grounding_sections else ""
+
         # General Humanized Conceptual Answer
         return {
             "reply": f"""### 💡 Let's Break Down Your Question on **{student_message}**
@@ -485,13 +516,13 @@ Soft computing is not a single methodology; it is a synergistic partnership:
 Here is a clear, step-by-step pedagogical explanation to make this concept click:
 
 #### 1. Intuition & The Big Picture
-In **{subject_name}**, this topic is all about solving a fundamental tradeoff. Rather than memorizing abstract rules, think of it in terms of what problem engineers were trying to solve:
-- **The Challenge**: Balancing system efficiency, reliability, and correctness under real-world constraints.
+In **{subject_name}**, this topic is all about solving a fundamental engineering tradeoff. Rather than memorizing abstract rules, think of it in terms of what problem engineers were trying to solve:
+- **The Challenge**: Balancing system efficiency, reliability, scalability, and correctness under real-world constraints.
 - **The Approach**: Decomposing the system into clear, manageable states and deterministic transitions.
 
 #### 2. Core Concepts from Your Prescribed Syllabus & Book/PPT
 - **Primary Mechanism**: When inputs enter the system, they follow formal transformation rules governed by boundary invariants.
-- **Key Relationship**: Inputs and outputs must maintain consistency across all operational states.
+- **Key Relationship**: Inputs and outputs must maintain consistency across all operational states.{grounding_md}
 
 #### 3. Step-by-Step Problem Solving Strategy
 1. **Clarify Inputs & Given Values**: Always write down the initial parameters and assumptions first in your exam answer.
@@ -604,8 +635,8 @@ When answering this topic in university exams, professors award maximum marks to
             }
         ]
 
-    def _fallback_gemini_summary(self, chapter_name: str, subject_name: str) -> Dict[str, Any]:
-        specific = get_detailed_mastery_content(subject_name, chapter_name)
+    def _fallback_gemini_summary(self, chapter_name: str, subject_name: str, topics: Optional[str] = None) -> Dict[str, Any]:
+        specific = get_detailed_mastery_content(subject_name, chapter_name, topics=topics or "")
         if specific:
             return specific
 
@@ -790,6 +821,18 @@ When answering this topic in university exams, professors award maximum marks to
         client = self.get_client()
         pyq_snippet = "\n".join(f"- {q}" for q in (pyqs_context or [])[:6])
 
+        parsed_topics = []
+        if topics:
+            try:
+                if str(topics).strip().startswith("["):
+                    parsed_topics = json.loads(topics)
+                else:
+                    parsed_topics = [t.strip() for t in topics.split(",") if t.strip()]
+            except Exception:
+                parsed_topics = [str(topics).strip()]
+        
+        topics_formatted = "\n".join(f"  - Subtopic {idx+1}: {t}" for idx, t in enumerate(parsed_topics)) if parsed_topics else (topics or "All core syllabus topics")
+
         if client:
             book_section = ""
             if book_context and len(book_context.strip()) > 50:
@@ -799,48 +842,58 @@ Official College Prescribed Reference Materials (Extracted from Uploaded Books /
 
 CRITICAL INSTRUCTION: Fully analyze and synthesize the concepts, formal definitions, algorithms, diagrams, and slide notes from these uploaded Book/PPT excerpts, grounding every explanation strictly in the official {subject_name} syllabus!
 """
-            topics_section = f"\nSpecific Syllabus Topics to Cover in Full Depth:\n{topics}\n" if topics else ""
 
             prompt = f"""
-You are a distinguished university professor and master tutor creating an exhaustive, in-depth "Mastery Guide" for engineering students studying:
+You are a distinguished university professor and master tutor creating an exhaustive, neatly structured, in-depth "Mastery Guide" for engineering students studying:
 Subject: {subject_name}
-Chapter: {chapter_name}
-{topics_section}
+Chapter/Module: {chapter_name}
+
+MANDATORY SYLLABUS SUBTOPIC REQUIREMENTS:
+The student specifically requires well-organized notes that systematically cover EVERY SINGLE SUBTOPIC in this module without skipping any points.
+Here are the official syllabus subtopics for this module:
+{topics_formatted}
+
 {book_section}
 Past Exam Questions for context:
 {pyq_snippet if pyq_snippet else "Standard university syllabus questions"}
 
 Generate a comprehensive, crystal-clear, deep-dive academic textbook guide in GitHub Flavored Markdown.
-The student requested deep theoretical explanations so that once they read it, every concept is 100% clear before attempting the quiz.
+The notes must be neat, beautifully formatted, easy to read, and exhaustive so the student understands everything before attempting quizzes and past paper questions.
 
-STRICTLY use these 5 section headings in order (use ### prefix):
+STRUCTURE YOUR NOTES STRICTLY AS FOLLOWS:
 
-### 1. 🎯 Concept Overview & Core Definitions
-Provide comprehensive, multi-paragraph conceptual foundations. Do not write brief bullet points.
-Explain the intuition, architectural motivation, and exact mathematical definitions for all core terms.
-Include ASCII or markdown state tables and structural diagrams where appropriate.
+# 📚 {chapter_name} — Comprehensive Syllabus Mastery
+*Curriculum: {subject_name} • University Examination Standard*
 
-### 2. 📐 Derivations & Mathematical Foundations
-Provide step-by-step mathematical proofs and rigorous derivations of all key formulas and theorems.
-Use LaTeX math notation: $...$ for inline math and $$...$$ for block equations on separate lines.
-Number each step clearly and explain the algebraic substitution and theoretical justification at every transition.
+## Part 1: Exhaustive Subtopic-by-Subtopic Theory
+For EACH of the listed subtopics ({len(parsed_topics) if parsed_topics else "all subtopics"}):
+Create a subsection formatted exactly as:
+### 📌 Subtopic [Index]: [Subtopic Title]
+- 💡 **Intuition & Mental Model**: Plain English conceptual explanation and real-world analogy.
+- 📖 **Formal Definition & Architectural Model**: Rigorous definition, state machine, or ASCII/markdown architecture diagram.
+- 📐 **Derivation / Algorithm / Mechanics**: Step-by-step mathematical formulation using LaTeX notation ($...$ inline, $$...$$ for block equations on separate lines).
+- 🔍 **Worked Example / Trace**: Concrete walkthrough with sample values or protocol sequence.
+- 🎓 **Professor's Exam-Scoring Tip**: Exact points examiners check when grading 5-mark and 10-mark questions.
 
-### 3. 💡 Worked Examples & Step-by-Step Solutions
-Provide 2-3 comprehensive, fully worked numerical or architectural design examples from university exam papers.
-Show the complete solution step-by-step, including input values, substitutions, and intermediate outputs.
+## Part 2: High-Yield Comparison Tables
+Provide 1 or 2 side-by-side Markdown comparison tables contrasting key opposing models/concepts in this module (with columns: Parameter, Option A, Option B, Exam Significance).
 
-### 4. 🏆 Exam Q&As — High-Probability Questions
-List 4-5 expected university examination questions (including 5-mark and 10-mark questions) with complete, detailed model answers that would receive full marks from university examiners.
-Format: **Q: [question text]** followed by the comprehensive answer below.
+## Part 3: University Past Exam Questions & Full-Mark Model Answers
+Provide 3-4 high-probability university examination questions (both 5-mark definition/distinction and 10-mark comprehensive design/derivation questions).
+Format each as:
+**Q: [Question text with marks indicator, e.g. (10 Marks)]**
+**Model Answer:** Detailed step-by-step solution formatted for maximum university marks.
 
-### 5. 🔑 Key Takeaways & Memory Hooks
-Provide structured, high-yield summary points, common exam pitfalls to avoid, and mnemonic techniques.
+## Part 4: Examiner's Pitfalls & Common Traps
+List 3-5 frequent misconceptions, invalid assumptions, or exam pitfalls where students lose marks in this module.
 
-Important Constraints:
-- Use proper LaTeX math notation: $formula$ for inline, $$formula$$ for block (on their own lines)
-- Do not use \\( \\) or \\[ \\] notation
-- Keep math rigorous, accurate, and completely readable
-- Depth requirement: Comprehensive, detailed explanation (1500 to 2500+ words). Leave no conceptual gaps.
+## Part 5: 60-Second Flash Memory Hooks & Mnemonics
+Provide quick acronyms, mental hooks, and a summary formula sheet for last-minute exam day revision.
+
+Important Formatting Rules:
+- Math Rendering: Use LaTeX notation strictly ($formula$ for inline math, $$formula$$ on its own line for block math). Never use \\( \\) or \\[ \\].
+- Formatting: Use bolding, clean bullet points, tables, and blockquotes for high readability.
+- Comprehensiveness: Exhaustive depth covering every single subtopic (1800 to 3000+ words).
 """
             try:
                 response = client.models.generate_content(
@@ -858,7 +911,7 @@ Important Constraints:
             except Exception as e:
                 print(f"[GeminiService] Mastery content error: {e}. Falling back to template.")
 
-        fallback = self._fallback_gemini_summary(chapter_name, subject_name)
+        fallback = self._fallback_gemini_summary(chapter_name, subject_name, topics=topics)
         return {
             "unified_md": fallback["summary_md"],
             "pitfalls": fallback["pitfalls"],

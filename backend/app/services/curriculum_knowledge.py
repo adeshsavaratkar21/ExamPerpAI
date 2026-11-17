@@ -12,6 +12,7 @@ Based on standard prescribed references:
 """
 
 from typing import Dict, Any, List
+from app.services.unit_mastery_data import build_comprehensive_unit_notes
 
 DC_RAW_MD = r"""# 📚 __CHAPTER_NAME__ — In-Depth Theoretical Mastery
 *Reference Syllabus: Distributed Computing | Textbooks: Andrew S. Tanenbaum & Maarten van Steen • George Coulouris et al.*
@@ -652,7 +653,17 @@ AISC_RAW_MD = r"""# 📚 __CHAPTER_NAME__ — In-Depth Theoretical Mastery
   **Model Answer**: XOR points $(0,1)$ and $(1,0)$ vs $(0,0)$ and $(1,1)$ are not linearly separable by any single hyper-plane $w_1 x_1 + w_2 x_2 + b = 0$. A Multilayer Perceptron (MLP) with non-linear hidden units is required.
 """
 
-def get_detailed_mastery_content(subject_name: str, chapter_name: str, book_excerpts: str = "") -> Dict[str, Any]:
+def get_detailed_mastery_content(subject_name: str, chapter_name: str, book_excerpts: str = "", topics: str = "") -> Dict[str, Any]:
+    # Build comprehensive, subtopic-by-subtopic notes covering every point in the module
+    unit_res = build_comprehensive_unit_notes(
+        subject_code="",
+        subject_name=subject_name,
+        chapter_name=chapter_name,
+        topics_raw=topics
+    )
+    if unit_res and unit_res.get("summary_md") and len(unit_res["summary_md"]) > 200:
+        return unit_res
+
     sub_lower = (subject_name or "").lower()
     ch_lower = (chapter_name or "").lower()
 

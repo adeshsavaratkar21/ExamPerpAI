@@ -16,6 +16,7 @@ from app.db import models
 from app.schemas import schemas
 from app.services.gemini_service import gemini_service
 from app.services.analytics_service import analytics_service
+from app.routers.books import SYLLABUS_REFERENCE_BOOKS
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -621,33 +622,108 @@ def ask_tutor_doubt(
     db: Session = Depends(get_db)
 ):
     """
-    Interactive AI Doubt resolution endpoint.
-    Answers student questions on specific chapter concepts grounded in textbooks and curriculum.
+    Interactive AI Academic Chat & Doubt Resolution endpoint.
+    Answers student questions on curriculum concepts, thoroughly grounded by analyzing:
+    1. Prescribed textbooks & PDF excerpts
+    2. Uploaded lecture PPT slides & unit reference materials
+    3. Previous Year Exam Questions (PYQs) and scoring marking criteria
     """
-    chapter = db.query(models.Chapter).filter(models.Chapter.id == payload.chapter_id).first()
-    if not chapter:
-        raise HTTPException(status_code=404, detail="Chapter not found")
+    # 1. Resolve Subject
+    subject = None
+    if payload.subject_id:
+        subject = db.query(models.Subject).filter(models.Subject.id == payload.subject_id).first()
+    
+    chapter = None
+    if payload.chapter_id:
+        chapter = db.query(models.Chapter).filter(models.Chapter.id == payload.chapter_id).first()
+        if chapter and not subject:
+            subject = db.query(models.Subject).filter(models.Subject.id == chapter.subject_id).first()
 
-    subject = db.query(models.Subject).filter(models.Subject.id == payload.subject_id).first()
     if not subject:
-        raise HTTPException(status_code=404, detail="Subject not found")
+        subject = db.query(models.Subject).first()
 
-    # Extract relevant textbook excerpts for grounding
-    book_context = extract_book_context_for_chapter(subject.code or "", chapter.name, chapter.topics or [])
+    if not chapter and subject:
+        chapter = db.query(models.Chapter).filter(models.Chapter.subject_id == subject.id).first()
 
+    sub_code = (subject.code or "DC").upper() if subject else "DC"
+    sub_name = subject.name if subject else "Engineering Curriculum"
+    ch_name = chapter.name if chapter else "Core Concepts"
+    ch_topics = chapter.topics if chapter else []
+
+    # 2. Extract Textbook Context & Prescribed Literature
+    book_context = extract_book_context_for_chapter(sub_code, ch_name, ch_topics)
+    prescribed = SYLLABUS_REFERENCE_BOOKS.get(sub_code, [])
+    if prescribed:
+        prescribed_titles = "; ".join([f"{b['title']} by {b.get('authors', '')}" for b in prescribed[:2]])
+        book_header = f"Prescribed Syllabus Textbooks: {prescribed_titles}\n"
+        book_context = book_header + (book_context or "")
+
+    # 3. Extract Lecture PPT & Unit Reference Materials Context
+    ppt_snippets = []
+    if chapter and chapter.reference_materials:
+        try:
+            refs = json.loads(chapter.reference_materials)
+            for r in refs:
+                txt = r.get("text_preview", "").strip()
+                fname = r.get("filename", "Slide Deck")
+                if txt:
+                    ppt_snippets.append(f"[{fname}]: {txt[:350]}")
+        except Exception:
+            pass
+
+    # Also inspect subject's books directory for PPT files
+    books_dir = os.path.join(settings.UPLOAD_DIR, sub_code, "books")
+    if os.path.exists(books_dir):
+        for f in os.listdir(books_dir):
+            if f.lower().endswith((".ppt", ".pptx")):
+                ppt_snippets.append(f"Class Lecture Presentation: {f}")
+
+    ppt_context = "\n".join(ppt_snippets)
+
+    # 4. Extract Previous Year Questions (PYQs) Knowledge
+    pyq_snippets = []
+    q_query = db.query(models.Question).filter(models.Question.subject_id == subject.id) if subject else None
+    ch_questions = []
+    if q_query:
+        if chapter:
+            ch_questions = q_query.filter(models.Question.chapter_id == chapter.id).all()
+        if not ch_questions:
+            ch_questions = q_query.limit(8).all()
+
+    for q in ch_questions[:6]:
+        year_str = q.source_paper or q.exam_year or "University Exam"
+        marks_str = f"{int(q.marks)}M" if q.marks else "5M/10M"
+        pyq_snippets.append(f"• [{year_str} | {marks_str}]: {q.text}")
+
+    pyq_context = "\n".join(pyq_snippets)
+
+    # 5. Format Chat History
     history_dicts = [{"role": h.role, "content": h.content} for h in (payload.history or [])]
 
+    # 6. Generate Pedagogical AI Response
     result = gemini_service.answer_student_doubt(
-        subject_name=subject.name,
-        chapter_name=chapter.name,
+        subject_name=sub_name,
+        chapter_name=ch_name,
         student_message=payload.message,
         chat_history=history_dicts,
         book_context=book_context,
+        ppt_context=ppt_context,
+        pyq_context=pyq_context,
         current_topic=payload.current_topic
     )
 
+    grounding_metadata = {
+        "subject_name": sub_name,
+        "chapter_name": ch_name,
+        "has_textbook_grounding": bool(book_context),
+        "has_ppt_grounding": bool(ppt_context),
+        "has_pyq_grounding": bool(pyq_context),
+        "pyq_questions_found": len(ch_questions)
+    }
+
     return schemas.TutorChatResponse(
         reply=result.get("reply", ""),
-        suggested_questions=result.get("suggested_questions", [])
+        suggested_questions=result.get("suggested_questions", []),
+        grounding_info=grounding_metadata
     )
 

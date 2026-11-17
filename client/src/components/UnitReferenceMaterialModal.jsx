@@ -26,6 +26,8 @@ export default function UnitReferenceMaterialModal({
   const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [inputPath, setInputPath] = useState('');
+  const [isImportingPath, setIsImportingPath] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const fileInputRef = useRef(null);
@@ -78,6 +80,29 @@ export default function UnitReferenceMaterialModal({
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handlePathAttach = async (e) => {
+    e?.preventDefault();
+    const clean = inputPath.trim();
+    if (!clean) return;
+
+    setIsImportingPath(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const res = await api.attachChapterReferenceMaterialByPath(chapterId, { path: clean });
+      setMaterials(res.data.reference_materials || []);
+      setSuccess(`Attached ${res.data.count || 1} reference file(s) from path successfully!`);
+      setInputPath('');
+      setTimeout(() => setSuccess(''), 4000);
+    } catch (err) {
+      console.error('Failed to attach from path:', err);
+      setError(err.response?.data?.detail || 'Failed to attach file from path. Please verify the path exists.');
+    } finally {
+      setIsImportingPath(false);
     }
   };
 
@@ -150,6 +175,34 @@ export default function UnitReferenceMaterialModal({
               </>
             )}
           </div>
+
+          {/* Attach via Local Path Form */}
+          <form onSubmit={handlePathAttach} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-3 bg-gray-50/80 rounded-2xl border border-gray-200">
+            <input
+              type="text"
+              value={inputPath}
+              onChange={(e) => setInputPath(e.target.value)}
+              placeholder="Or paste local path to PPT/PDF file (e.g. C:\Lectures\Unit2_RPC.pptx)"
+              className="flex-1 px-3 py-1.5 rounded-xl bg-white border border-gray-200 text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+            />
+            <button
+              type="submit"
+              disabled={isImportingPath || !inputPath.trim()}
+              className="px-3 py-1.5 rounded-xl bg-gray-900 hover:bg-black disabled:opacity-50 text-white font-bold text-xs transition-colors shadow-2xs flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+            >
+              {isImportingPath ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                  <span>Attaching...</span>
+                </>
+              ) : (
+                <>
+                  <Paperclip className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Add from Path</span>
+                </>
+              )}
+            </button>
+          </form>
 
           {/* Feedback messages */}
           {error && (

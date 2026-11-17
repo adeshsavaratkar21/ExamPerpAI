@@ -3,6 +3,7 @@ import re
 import shutil
 import json
 import base64
+import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, Query, Response
 from sqlalchemy.orm import Session
@@ -494,6 +495,60 @@ def get_all_papers(db: Session = Depends(get_db)):
     }
 
 
+@router.get("/chapter/{chapter_id}")
+def get_chapter_pyq_overview(chapter_id: int, db: Session = Depends(get_db)):
+    """
+    Retrieves all past year exam questions specifically categorized under this unit/module,
+    along with subject exam context, papers list, and completion status.
+    """
+    ch = db.query(models.Chapter).filter(models.Chapter.id == chapter_id).first()
+    if not ch:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+
+    subject = db.query(models.Subject).filter(models.Subject.id == ch.subject_id).first()
+    questions = db.query(models.Question).filter(
+        models.Question.chapter_id == chapter_id
+    ).order_by(models.Question.marks.desc(), models.Question.id.desc()).all()
+
+    # Formatted questions
+    res_qs = []
+    for q in questions:
+        tags = []
+        try:
+            tags = json.loads(q.tags) if q.tags else []
+        except Exception:
+            tags = []
+        res_qs.append({
+            "id": q.id,
+            "text": q.text,
+            "question_type": q.question_type or "Long",
+            "marks": q.marks or 10.0,
+            "difficulty": q.difficulty or "Medium",
+            "exam_year": q.exam_year or "2024",
+            "source_paper": q.source_paper or "University Examination",
+            "solution": q.solution or "",
+            "tags": tags
+        })
+
+    # Total papers available for this subject
+    sub_docs = db.query(models.PYQDocument).filter(models.PYQDocument.subject_id == subject.id).all() if subject else []
+
+    return {
+        "chapter_id": ch.id,
+        "chapter_name": ch.name,
+        "unit_number": ch.unit_number or 1,
+        "subject_id": subject.id if subject else None,
+        "subject_code": (subject.code or "SUB").upper() if subject else "",
+        "subject_name": subject.name if subject else "",
+        "pyq_done": bool(ch.pyq_done),
+        "is_completed": bool(ch.is_completed),
+        "total_questions": len(res_qs),
+        "questions": res_qs,
+        "total_subject_papers": len(sub_docs),
+        "subject_papers": [{"id": d.id, "filename": d.filename, "year": d.exam_year, "session": d.exam_session} for d in sub_docs]
+    }
+
+
 @router.post("/chapter/{chapter_id}/mark-practiced")
 def mark_chapter_pyq_practiced(chapter_id: int, db: Session = Depends(get_db)):
     """
@@ -520,6 +575,145 @@ def mark_chapter_pyq_practiced(chapter_id: int, db: Session = Depends(get_db)):
         "steps_done": sum([1 for f in [ch.video_done, ch.notes_done, ch.pyq_done, ch.quiz_done] if f]),
         "total_steps": 4,
         "readiness_index": updated_metrics["readiness_index"]
+    }
+
+
+@router.post("/add-by-path")
+def add_pyq_by_path(
+    payload: schemas.PYQPathAddRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Imports PYQ PDF document(s) from a local filesystem path or directory.
+    Extracts text, questions, and indexes them into the database with base64 persistence.
+    """
+    subject = db.query(models.Subject).filter(models.Subject.id == payload.subject_id).first()
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+
+    raw_path = (payload.path or "").strip().strip('"').strip("'")
+    if not raw_path:
+        raise HTTPException(status_code=400, detail="Path cannot be empty")
+
+    normalized_path = os.path.abspath(raw_path)
+    if not os.path.exists(normalized_path):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Path not found: '{raw_path}'. Please verify the file or directory exists on your computer."
+        )
+
+    subject_folder = os.path.join(settings.UPLOAD_DIR, subject.code or f"subject_{subject.id}")
+    os.makedirs(subject_folder, exist_ok=True)
+
+    chapters = db.query(models.Chapter).filter(models.Chapter.subject_id == subject.id).all()
+    chapter_names = [ch.name for ch in chapters]
+
+    files_to_process = []
+    if os.path.isfile(normalized_path):
+        if not normalized_path.lower().endswith(".pdf"):
+            raise HTTPException(status_code=400, detail="Only PDF documents are supported for PYQs.")
+        files_to_process.append(normalized_path)
+    elif os.path.isdir(normalized_path):
+        for root, _, files in os.walk(normalized_path):
+            for f in files:
+                if f.lower().endswith(".pdf"):
+                    files_to_process.append(os.path.join(root, f))
+
+    if not files_to_process:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No PDF documents were found at '{raw_path}'."
+        )
+
+    imported_docs = []
+    total_questions = 0
+
+    for src_path in files_to_process:
+        orig_filename = os.path.basename(src_path)
+        safe_filename = f"{subject.id}_{int(os.times().elapsed)}_{orig_filename.replace(' ', '_')}"
+        dest_path = os.path.join(subject_folder, safe_filename)
+
+        # Copy file to subject folder
+        shutil.copy2(src_path, dest_path)
+
+        # Extract text using pdf_service
+        try:
+            extracted_text = pdf_service.extract_text(dest_path)
+        except Exception:
+            extracted_text = ""
+
+        # Extract structured questions via Gemini / intelligent fallback
+        extracted_questions_raw = gemini_service.extract_questions_from_pyq(
+            pyq_text=extracted_text,
+            subject_name=subject.name,
+            chapter_names=chapter_names
+        )
+
+        with open(dest_path, "rb") as f:
+            file_bytes = f.read()
+        b64_content = base64.b64encode(file_bytes).decode('utf-8')
+        size_mb = len(file_bytes) / (1024 * 1024)
+        size_formatted = f"{size_mb:.1f} MB" if size_mb >= 1.0 else f"{max(1, round(len(file_bytes) / 1024))} KB"
+
+        # Create PYQDocument record
+        pyq_doc = models.PYQDocument(
+            subject_id=subject.id,
+            filename=orig_filename,
+            file_path=dest_path,
+            file_data=b64_content,
+            file_size_formatted=size_formatted,
+            exam_year=payload.exam_year or "2024",
+            exam_session=payload.exam_session or "End-Semester",
+            total_questions_extracted=len(extracted_questions_raw)
+        )
+        db.add(pyq_doc)
+        db.flush()
+
+        for q_data in extracted_questions_raw:
+            matched_chapter_id = None
+            raw_ch_name = q_data.get("chapter_name", "").lower().strip()
+            for ch in chapters:
+                if ch.name.lower() in raw_ch_name or raw_ch_name in ch.name.lower():
+                    matched_chapter_id = ch.id
+                    break
+            if not matched_chapter_id and chapters:
+                matched_chapter_id = chapters[0].id
+
+            tags = q_data.get("tags", [])
+            if isinstance(tags, str):
+                tags = [tags]
+
+            question_obj = models.Question(
+                subject_id=subject.id,
+                chapter_id=matched_chapter_id,
+                pyq_doc_id=pyq_doc.id,
+                text=q_data.get("text", "Exam Question"),
+                question_type=q_data.get("question_type", "Short"),
+                marks=float(q_data.get("marks", 5.0)),
+                solution=q_data.get("solution"),
+                difficulty=q_data.get("difficulty", "Medium"),
+                exam_year=payload.exam_year or "2024",
+                source_paper=f"{payload.exam_session or 'End-Semester'} {payload.exam_year or '2024'} ({orig_filename})",
+                tags=json.dumps(tags)
+            )
+            db.add(question_obj)
+            db.flush()
+
+        imported_docs.append({
+            "id": pyq_doc.id,
+            "filename": orig_filename,
+            "questions_count": len(extracted_questions_raw)
+        })
+        total_questions += len(extracted_questions_raw)
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"Successfully imported {len(imported_docs)} PYQ paper(s) with {total_questions} questions for {subject.name}!",
+        "documents": imported_docs,
+        "total_documents": len(imported_docs),
+        "total_questions": total_questions
     }
 
 

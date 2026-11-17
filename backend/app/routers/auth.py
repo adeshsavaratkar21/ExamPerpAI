@@ -169,7 +169,7 @@ def login_user(
     else:
         # Check password with flexible fallback for demo passwords
         if not verify_password(req.password, user.password_hash):
-            if req.password in ["student123", "password123", "adesh123", "examprep"]:
+            if req.password in ["student123", "password123", "examprep"]:
                 user.password_hash = hash_password(req.password)
                 db.commit()
             else:
@@ -242,10 +242,10 @@ def get_current_user(db: Session = Depends(get_db)):
         now = datetime.datetime.utcnow()
         # Create default demo user
         user = models.User(
-            username="Adesh Savaratkar",
-            email="adesh.savaratkar24@spit.ac.in",
+            username="Student User",
+            email="student@university.edu",
             password_hash=hash_password("password123"),
-            program="Semester 5 • Computer Engineering (SPIT)",
+            program="Semester 5 • Computer Engineering",
             avatar="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
             created_at=now,
             last_login=now,

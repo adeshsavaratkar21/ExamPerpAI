@@ -27,6 +27,7 @@ export const api = {
     client.post('/pyq/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
+  addPYQByPath: (data) => client.post('/pyq/add-by-path', data),
   getPYQDocuments: (subjectId) =>
     client.get('/pyq/documents', { params: { subject_id: subjectId } }),
   getSubjectPapers: (codeOrId) => client.get(`/pyq/subject-papers/${codeOrId}`),
@@ -62,7 +63,10 @@ export const api = {
     client.post(`/syllabus/chapter/${chapterId}/reference-material`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
+  attachChapterReferenceMaterialByPath: (chapterId, data) =>
+    client.post(`/syllabus/chapter/${chapterId}/reference-material-by-path`, data),
   getChapterReferenceMaterials: (chapterId) => client.get(`/syllabus/chapter/${chapterId}/reference-materials`),
+  getChapterPYQOverview: (chapterId) => client.get(`/pyq/chapter/${chapterId}`),
   markChapterPYQPracticed: (chapterId) => client.post(`/pyq/chapter/${chapterId}/mark-practiced`),
 
   // Reference Textbooks & College Prescribed Books
@@ -71,6 +75,7 @@ export const api = {
     client.post('/books/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
+  addBookByPath: (data) => client.post('/books/add-by-path', data),
   deleteBook: (subjectCode, filename) =>
     client.delete('/books/delete', { params: { subject_code: subjectCode, filename } }),
 

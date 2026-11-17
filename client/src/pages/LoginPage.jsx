@@ -41,8 +41,8 @@ export default function LoginPage({ onLogin }) {
 
   // Quick Demo credentials auto-fill
   const handleQuickDemoLogin = () => {
-    setUsername('Adesh Savaratkar');
-    setEmail('adesh.savaratkar24@spit.ac.in');
+    setUsername('Student User');
+    setEmail('student@university.edu');
     setPassword('student123');
     setErrorMessage('');
   };
@@ -54,7 +54,7 @@ export default function LoginPage({ onLogin }) {
 
     // Input Validation
     if (!username.trim()) {
-      setErrorMessage('Please enter your Username.');
+      setErrorMessage('Please enter your Full Name.');
       return;
     }
     if (!email.trim()) {
@@ -204,7 +204,7 @@ export default function LoginPage({ onLogin }) {
               </h1>
               <p className="text-xs sm:text-sm text-gray-500 font-medium mt-1.5">
                 {mode === 'login'
-                  ? 'Sign in with your username, email ID, and password to continue.'
+                  ? 'Sign in with your full name, email ID, and password to continue.'
                   : 'Join the exam preparation platform designed for semester excellence.'}
               </p>
             </div>
@@ -248,10 +248,10 @@ export default function LoginPage({ onLogin }) {
 
             {/* Form Fields: Username, Email ID, Password */}
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* 1. USERNAME Field */}
+              {/* 1. FULL NAME Field */}
               <div>
                 <label className="block text-xs font-extrabold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Username <span className="text-rose-500">*</span>
+                  Full Name <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <User className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -260,7 +260,7 @@ export default function LoginPage({ onLogin }) {
                     required
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Enter your username (e.g. Adesh Savaratkar)"
+                    placeholder="Enter your Full Name"
                     className="w-full bg-gray-50/70 hover:bg-gray-50 focus:bg-white border border-gray-200 focus:border-amber-400 rounded-2xl py-2.5 pl-10 pr-4 text-xs sm:text-sm font-semibold text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-200/50 transition-all shadow-2xs"
                   />
                 </div>
@@ -534,8 +534,8 @@ export default function LoginPage({ onLogin }) {
             </p>
 
             <div className="p-3 rounded-2xl bg-gray-50 border border-gray-200 text-xs space-y-1 mb-5">
-              <p><span className="font-bold text-gray-800">Demo Username:</span> Adesh Savaratkar</p>
-              <p><span className="font-bold text-gray-800">Demo Email:</span> adesh.savaratkar24@spit.ac.in</p>
+              <p><span className="font-bold text-gray-800">Demo Full Name:</span> Student User</p>
+              <p><span className="font-bold text-gray-800">Demo Email:</span> student@university.edu</p>
               <p><span className="font-bold text-gray-800">Default Password:</span> student123</p>
             </div>
 

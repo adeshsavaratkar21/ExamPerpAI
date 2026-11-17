@@ -48,6 +48,9 @@ export default function FileUploader({
   const [extractedResult, setExtractedResult] = useState(null);
   const [expandedQuestionId, setExpandedQuestionId] = useState(null);
   const [selectedFilterType, setSelectedFilterType] = useState('All');
+  const [pyqPathInput, setPyqPathInput] = useState('');
+  const [isImportingPyqPath, setIsImportingPyqPath] = useState(false);
+  const [pyqPathSuccess, setPyqPathSuccess] = useState('');
 
   const fileInputRef = useRef(null);
 
@@ -200,6 +203,34 @@ export default function FileUploader({
       setErrorMsg(err.response?.data?.detail || 'Failed to parse PDF document.');
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleImportPyqFromPath = async (e) => {
+    e?.preventDefault();
+    const clean = pyqPathInput.trim();
+    if (!clean) return;
+
+    setIsImportingPyqPath(true);
+    setErrorMsg('');
+    setPyqPathSuccess('');
+
+    try {
+      const res = await api.addPYQByPath({
+        subject_id: Number(uploadSubjectId),
+        path: clean,
+        exam_year: examYear,
+        exam_session: examSession
+      });
+      setPyqPathSuccess(res.data.message || 'Imported papers successfully!');
+      setPyqPathInput('');
+      loadPapers();
+      setTimeout(() => setPyqPathSuccess(''), 5000);
+    } catch (err) {
+      console.error('Import PYQ error:', err);
+      setErrorMsg(err.response?.data?.detail || 'Failed to import PYQ document(s) from path. Please verify the path exists.');
+    } finally {
+      setIsImportingPyqPath(false);
     }
   };
 
@@ -681,6 +712,45 @@ export default function FileUploader({
                 )}
               </button>
             </div>
+          </div>
+
+          {/* Or Import via Path Form */}
+          <div className="mt-5 pt-4 border-t border-gray-100">
+            <h4 className="text-xs font-black uppercase tracking-wider text-gray-500 mb-2 flex items-center gap-1.5">
+              <span>📂</span> Or Import PYQ PDF by Local File Path or Folder:
+            </h4>
+            <form onSubmit={handleImportPyqFromPath} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <input
+                type="text"
+                value={pyqPathInput}
+                onChange={(e) => setPyqPathInput(e.target.value)}
+                placeholder="e.g. C:\Documents\PYQs\2023_endsem.pdf or D:\ExamPapers"
+                className="flex-1 bg-[#F8F9FC] border border-gray-200 rounded-xl px-3.5 py-2 text-xs font-semibold text-gray-900 focus:outline-none focus:border-gray-400 placeholder:text-gray-400"
+              />
+              <button
+                type="submit"
+                disabled={isImportingPyqPath || !pyqPathInput.trim()}
+                className="px-4 py-2 rounded-xl bg-gray-900 hover:bg-black disabled:opacity-50 text-white font-bold text-xs transition-colors shadow-2xs flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+              >
+                {isImportingPyqPath ? (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                    <span>Importing Papers...</span>
+                  </>
+                ) : (
+                  <>
+                    <BookOpen className="w-3.5 h-3.5 text-accentYellow" />
+                    <span>Import from Path</span>
+                  </>
+                )}
+              </button>
+            </form>
+            {pyqPathSuccess && (
+              <div className="mt-2.5 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{pyqPathSuccess}</span>
+              </div>
+            )}
           </div>
 
           {errorMsg && (

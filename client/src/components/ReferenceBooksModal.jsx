@@ -32,6 +32,8 @@ export default function ReferenceBooksModal({
   const [uploading, setUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState('');
   const [targetBookId, setTargetBookId] = useState(null);
+  const [inputPath, setInputPath] = useState('');
+  const [isImportingPath, setIsImportingPath] = useState(false);
   const fileInputRef = useRef(null);
 
   const fetchBooks = async () => {
@@ -116,6 +118,31 @@ export default function ReferenceBooksModal({
     } catch (err) {
       console.error('Failed to delete file:', err);
       alert('Failed to delete file.');
+    }
+  };
+
+  const handleImportFromPath = async (e) => {
+    e?.preventDefault();
+    const clean = inputPath.trim();
+    if (!clean) return;
+
+    setIsImportingPath(true);
+    setErrorMsg('');
+    setUploadSuccess('');
+
+    try {
+      const res = await api.addBookByPath({
+        subject_id: subjectId || booksData?.subject_id,
+        path: clean
+      });
+      setUploadSuccess(res.data.message || 'Textbook(s) imported successfully!');
+      setInputPath('');
+      await fetchBooks();
+    } catch (err) {
+      console.error('Failed to import from path:', err);
+      setErrorMsg(err.response?.data?.detail || 'Failed to import files from path. Please verify the path exists.');
+    } finally {
+      setIsImportingPath(false);
     }
   };
 
@@ -252,6 +279,36 @@ export default function ReferenceBooksModal({
                 </span>
               </div>
             </div>
+
+            {/* Quick Path Import Box */}
+            <form onSubmit={handleImportFromPath} className="mt-3.5 pt-3 border-t border-indigo-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  value={inputPath}
+                  onChange={(e) => setInputPath(e.target.value)}
+                  placeholder="Paste local path to book PDF or books folder (e.g. C:\Books\Tanenbaum.pdf or D:\Sem5\Books)"
+                  className="w-full pl-3 pr-3 py-1.5 rounded-xl bg-white border border-indigo-200 text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isImportingPath || !inputPath.trim()}
+                className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs transition-all shadow-2xs flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+              >
+                {isImportingPath ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Importing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Folder className="w-3 h-3" />
+                    <span>Add from Path</span>
+                  </>
+                )}
+              </button>
+            </form>
           </div>
 
           {/* Loading Skeleton */}

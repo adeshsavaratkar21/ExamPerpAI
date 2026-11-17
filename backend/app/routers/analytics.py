@@ -568,6 +568,117 @@ async def upload_chapter_reference_material(
     }
 
 
+@router.post("/syllabus/chapter/{chapter_id}/reference-material-by-path")
+def attach_chapter_reference_material_by_path(
+    chapter_id: int,
+    payload: schemas.UnitMaterialPathAddRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Attaches reference material (Lecture PPT, Textbook PDF, or Class Notes) from a local filesystem path.
+    """
+    ch = db.query(models.Chapter).filter(models.Chapter.id == chapter_id).first()
+    if not ch:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+
+    subject = db.query(models.Subject).filter(models.Subject.id == ch.subject_id).first()
+    subject_code = (subject.code or "SUB").upper()
+
+    raw_path = (payload.path or "").strip().strip('"').strip("'")
+    if not raw_path:
+        raise HTTPException(status_code=400, detail="Path cannot be empty")
+
+    normalized_path = os.path.abspath(raw_path)
+    if not os.path.exists(normalized_path):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Path not found: '{raw_path}'. Please check that the file exists on your system."
+        )
+
+    ref_dir = os.path.join(settings.UPLOAD_DIR, subject_code, f"unit_{ch.unit_number or ch.id}")
+    os.makedirs(ref_dir, exist_ok=True)
+
+    files_to_copy = []
+    ALLOWED = (".pdf", ".ppt", ".pptx", ".txt")
+    if os.path.isfile(normalized_path):
+        if not normalized_path.lower().endswith(ALLOWED):
+            raise HTTPException(status_code=400, detail="Only PDF, PPT, PPTX, and TXT files are supported.")
+        files_to_copy.append(normalized_path)
+    elif os.path.isdir(normalized_path):
+        for root, _, files in os.walk(normalized_path):
+            for f in files:
+                if f.lower().endswith(ALLOWED):
+                    files_to_copy.append(os.path.join(root, f))
+
+    if not files_to_copy:
+        raise HTTPException(status_code=400, detail=f"No valid reference files found at '{raw_path}'.")
+
+    existing_materials = []
+    if ch.reference_materials:
+        try:
+            existing_materials = json.loads(ch.reference_materials)
+            if not isinstance(existing_materials, list):
+                existing_materials = []
+        except Exception:
+            existing_materials = []
+
+    for src_path in files_to_copy:
+        orig_filename = os.path.basename(src_path)
+        safe_name = f"{int(datetime.datetime.utcnow().timestamp())}_{orig_filename.replace(' ', '_')}"
+        dest_path = os.path.join(ref_dir, safe_name)
+        shutil.copy2(src_path, dest_path)
+
+        extracted_text = ""
+        file_lower = orig_filename.lower()
+        try:
+            if file_lower.endswith(".pdf"):
+                from pypdf import PdfReader
+                reader = PdfReader(dest_path)
+                pages_text = [page.extract_text() or "" for page in reader.pages[:15]]
+                extracted_text = "\n".join(pages_text).strip()
+            elif file_lower.endswith((".pptx", ".ppt")):
+                try:
+                    from pptx import Presentation
+                    prs = Presentation(dest_path)
+                    slides_text = []
+                    for slide in prs.slides:
+                        for shape in slide.shapes:
+                            if hasattr(shape, "text") and shape.text:
+                                slides_text.append(shape.text.strip())
+                    extracted_text = "\n".join(slides_text).strip()
+                except Exception:
+                    extracted_text = f"PPT presentation imported: {orig_filename}"
+            elif file_lower.endswith(".txt"):
+                with open(dest_path, "r", encoding="utf-8", errors="ignore") as f:
+                    extracted_text = f.read()
+        except Exception:
+            extracted_text = f"Reference file attached: {orig_filename}"
+
+        file_size = os.path.getsize(dest_path)
+        file_size_kb = max(1, round(file_size / 1024))
+        size_formatted = f"{file_size_kb / 1024:.1f} MB" if file_size_kb >= 1024 else f"{file_size_kb} KB"
+
+        material_entry = {
+            "id": f"ref_{int(datetime.datetime.utcnow().timestamp())}_{len(existing_materials)}",
+            "filename": orig_filename,
+            "file_path": dest_path,
+            "file_size": size_formatted,
+            "uploaded_at": datetime.datetime.utcnow().isoformat(),
+            "text_preview": extracted_text[:1000] if extracted_text else ""
+        }
+        existing_materials.append(material_entry)
+
+    ch.reference_materials = json.dumps(existing_materials)
+    db.commit()
+
+    return {
+        "message": f"Successfully attached {len(files_to_copy)} reference file(s) for {ch.name}",
+        "chapter_id": ch.id,
+        "reference_materials": existing_materials,
+        "count": len(files_to_copy)
+    }
+
+
 @router.get("/syllabus/chapter/{chapter_id}/reference-materials")
 def get_chapter_reference_materials(chapter_id: int, db: Session = Depends(get_db)):
     """

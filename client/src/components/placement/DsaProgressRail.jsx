@@ -46,7 +46,7 @@ export default function DsaProgressRail({ studentProfile, onNavigateTab }) {
     return [1, 2, 3, 20, 21, 53, 70, 121, 141, 206, 226]; // Initial sample
   });
 
-  // Synced LeetCode Profile Data (e.g. @Adesh_21)
+  // Synced LeetCode Profile Data (e.g. @student_coder)
   const [leetcodeData, setLeetcodeData] = useState(() => {
     try {
       const saved = localStorage.getItem('examprep_leetcode_data');
