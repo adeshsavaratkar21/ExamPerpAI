@@ -349,6 +349,72 @@ def extract_module_wise_questions(
         query = query.filter(models.Question.pyq_doc_id.in_(payload.document_ids))
     questions = query.all()
 
+    # If no questions currently in DB but documents exist, parse and extract them from documents
+    if not questions or payload.force_reextract:
+        docs_query = db.query(models.PYQDocument).filter(models.PYQDocument.subject_id == payload.subject_id)
+        if payload.document_ids:
+            docs_query = docs_query.filter(models.PYQDocument.id.in_(payload.document_ids))
+        docs = docs_query.all()
+
+        chapter_names = [f"Unit {ch.unit_number}: {ch.name}" for ch in chapters]
+        for doc in docs:
+            extracted_text = ""
+            if doc.file_path and os.path.exists(doc.file_path):
+                try:
+                    extracted_text = pdf_service.extract_text(doc.file_path)
+                except Exception:
+                    pass
+            elif doc.file_data:
+                try:
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+                        tmp.write(base64.b64decode(doc.file_data))
+                        tmp_path = tmp.name
+                    extracted_text = pdf_service.extract_text(tmp_path)
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
+
+            extracted_raw = gemini_service.extract_questions_from_pyq(
+                pyq_text=extracted_text,
+                subject_name=subject.name,
+                chapter_names=chapter_names
+            )
+
+            # Avoid duplicates if force_reextract
+            if payload.force_reextract:
+                db.query(models.Question).filter(models.Question.pyq_doc_id == doc.id).delete()
+
+            for q_idx, q_data in enumerate(extracted_raw):
+                matched_chapter_id = match_question_to_chapter(
+                    q_text=q_data.get("text", ""),
+                    q_hint=q_data.get("chapter_name", ""),
+                    chapters=chapters,
+                    fallback_index=q_idx
+                )
+                tags = q_data.get("tags", [])
+                if isinstance(tags, str):
+                    tags = [tags]
+
+                question_obj = models.Question(
+                    subject_id=subject.id,
+                    chapter_id=matched_chapter_id,
+                    pyq_doc_id=doc.id,
+                    text=q_data.get("text", "Exam Question"),
+                    question_type=q_data.get("question_type", "Short"),
+                    marks=float(q_data.get("marks", 5.0)),
+                    solution=q_data.get("solution"),
+                    difficulty=q_data.get("difficulty", "Medium"),
+                    exam_year=doc.exam_year or "2024",
+                    source_paper=f"{doc.exam_session or 'Endsem'} {doc.exam_year or '2024'} ({doc.filename})",
+                    tags=json.dumps(tags)
+                )
+                db.add(question_obj)
+        db.commit()
+
+        # Re-fetch populated questions
+        questions = db.query(models.Question).filter(models.Question.subject_id == payload.subject_id).all()
+
     # Re-evaluate and assign each question to the best matching chapter
     for q_idx, q in enumerate(questions):
         best_chapter_id = match_question_to_chapter(

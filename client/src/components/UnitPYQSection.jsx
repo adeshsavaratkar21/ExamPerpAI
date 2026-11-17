@@ -312,35 +312,41 @@ export default function UnitPYQSection({
               {filteredQuestions.map((q, idx) => {
                 const isExpanded = expandedQId === q.id;
                 const is10M = (q.marks || 0) >= 10;
+                const qNumberBadge = q.text.match(/^(?:Q(?:uestion)?\.?\s*\d+\s*(?:\([a-zA-Z0-9]+\)|[a-zA-Z0-9]+[\.\)])?|^\d+[\.\)]\s*(?:\([a-zA-Z0-9]+\))?)/i)?.[0];
 
                 return (
                   <div
                     key={q.id || idx}
-                    className="p-4 sm:p-5 rounded-2xl bg-white border border-gray-200/90 hover:border-emerald-300 transition-all shadow-3xs"
+                    className="p-4 sm:p-5 rounded-2xl bg-white border border-gray-200/90 hover:border-emerald-300 transition-all shadow-3xs space-y-2.5"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="space-y-1.5 flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
+                          {qNumberBadge && (
+                            <span className="px-2 py-0.5 rounded-md bg-gray-950 text-white text-[11px] font-black tracking-tight">
+                              {qNumberBadge}
+                            </span>
+                          )}
                           <span className={`px-2 py-0.5 rounded-md text-[10px] font-black ${
                             is10M
                               ? 'bg-rose-100 text-rose-900 border border-rose-200'
                               : 'bg-indigo-100 text-indigo-900 border border-indigo-200'
                           }`}>
-                            {q.marks || (is10M ? 10 : 5)} Marks
+                            [{q.marks || (is10M ? 10 : 5)} Marks]
                           </span>
                           <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 text-[10px] font-bold">
                             {q.source_paper || `${q.exam_year || '2024'} Endsem`}
                           </span>
-                          {q.difficulty && (
-                            <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 text-[10px] font-semibold">
-                              {q.difficulty}
+                          {q.question_type && (
+                            <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 text-[10px] font-semibold border border-amber-200/60">
+                              {q.question_type}
                             </span>
                           )}
                         </div>
 
-                        <p className="text-xs sm:text-sm font-bold text-gray-900 leading-relaxed pt-1">
+                        <div className="text-xs sm:text-sm font-bold text-gray-900 leading-relaxed pt-1 whitespace-pre-wrap select-text">
                           {q.text}
-                        </p>
+                        </div>
                       </div>
 
                       <button

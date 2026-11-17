@@ -16,7 +16,8 @@ import {
   Calendar,
   AlertCircle,
   Tv,
-  Play
+  Play,
+  UploadCloud
 } from 'lucide-react';
 import api from '../services/api';
 import SubjectPYQModal from '../components/SubjectPYQModal';
@@ -340,6 +341,37 @@ export default function CoursesPage({
           </div>
         </section>
 
+        {/* Course PYQ Quick Access & Management Suite Banner */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-gray-900 via-gray-950 to-indigo-950 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-md">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-amber-400 text-gray-950 flex items-center justify-center font-black text-xl shadow-xs shrink-0">
+              ⚡
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="text-sm sm:text-base font-extrabold text-white tracking-tight">
+                  Past Year Exam Questions (PYQ) — {subjectDetail.name}
+                </h4>
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-black border border-amber-400/30">
+                  {subjectDetail.pyq_count || 0} Papers Uploaded
+                </span>
+              </div>
+              <p className="text-xs text-gray-300 mt-0.5 font-medium">
+                Add question papers at the top to extract questions below with exact paper formatting, numbering (Q.1a, Q.2b), formulas, and values.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setIsPYQModalOpen(true)}
+              className="px-4 py-2.5 rounded-xl bg-accentYellow hover:bg-amber-300 text-gray-950 text-xs font-black transition-all shadow-xs flex items-center gap-2 cursor-pointer hover:scale-105 active:scale-95"
+            >
+              <UploadCloud className="w-4 h-4 text-gray-950" />
+              <span>+ Add / View Course PYQs</span>
+            </button>
+          </div>
+        </div>
+
         {/* ========================================================= */}
         {/* SECTION 2: COMPLETE SYLLABUS & TOPIC BREAKDOWN            */}
         {/* ========================================================= */}
@@ -618,9 +650,18 @@ export default function CoursesPage({
         {/* Subject PYQ Papers Gallery & PDF Viewer Modal */}
         <SubjectPYQModal
           isOpen={isPYQModalOpen}
-          onClose={() => setIsPYQModalOpen(false)}
+          onClose={() => {
+            setIsPYQModalOpen(false);
+            if (activeFolderId) {
+              api.getSubjectDetail(activeFolderId)
+                .then(res => setSubjectDetail(res.data))
+                .catch(() => {});
+            }
+          }}
+          subjectId={subjectDetail.id}
           subjectCode={subjectDetail.code}
           subjectName={subjectDetail.name}
+          chapters={chapters}
           onLaunchQuiz={(chId) => onLaunchQuizForChapter(chId)}
         />
 
