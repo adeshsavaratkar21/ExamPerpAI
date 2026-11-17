@@ -57,10 +57,14 @@ export default function RightRail({
   // Persisted Upcoming Exams
   const [exams, setExams] = useState(() => {
     try {
-      const authUser = JSON.parse(localStorage.getItem('examprep_auth_user') || sessionStorage.getItem('examprep_auth_user') || '{}');
+      const rawAuth = localStorage.getItem('examprep_auth_user') || sessionStorage.getItem('examprep_auth_user');
+      const authUser = (rawAuth && rawAuth !== 'undefined' && rawAuth !== 'null') ? JSON.parse(rawAuth) : null;
       const userKey = authUser?.email ? `examprep_exams_${authUser.email}` : null;
       const saved = (userKey && localStorage.getItem(userKey)) || localStorage.getItem('examprep_upcoming_exams');
-      if (saved) return JSON.parse(saved);
+      if (saved && saved !== 'undefined' && saved !== 'null') {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
     } catch (e) {
       console.error('Failed to load upcoming exams:', e);
     }

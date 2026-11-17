@@ -15,15 +15,22 @@ import PlacementPage from './pages/PlacementPage';
 import DsaProgressRail from './components/placement/DsaProgressRail';
 import api from './services/api';
 
+function safeJsonParse(val, fallback = null) {
+  if (!val || val === 'undefined' || val === 'null') return fallback;
+  try {
+    const res = JSON.parse(val);
+    return res !== null && res !== undefined ? res : fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
-    try {
-      const saved = localStorage.getItem('examprep_auth_user') || sessionStorage.getItem('examprep_auth_user');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error('Failed to load auth user:', e);
-    }
-    return null;
+    return safeJsonParse(
+      localStorage.getItem('examprep_auth_user') || sessionStorage.getItem('examprep_auth_user'),
+      null
+    );
   });
 
   const [currentTab, setCurrentTab] = useState('dashboard');
@@ -42,12 +49,8 @@ export default function App() {
 
   // Student Profile state loaded from localStorage with default fallback
   const [studentProfile, setStudentProfile] = useState(() => {
-    try {
-      const saved = localStorage.getItem('examprep_student_profile');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error('Failed to load student profile:', e);
-    }
+    const saved = safeJsonParse(localStorage.getItem('examprep_student_profile'), null);
+    if (saved && typeof saved === 'object' && saved.name) return saved;
     return {
       name: "Student",
       email: "student@university.edu",
@@ -78,9 +81,9 @@ export default function App() {
       const backendProgress = res.data?.progress || {};
 
       // 2. Check local storage for user-scoped data
-      const localTasks = JSON.parse(localStorage.getItem(`examprep_tasks_${user.email}`) || localStorage.getItem('examprep_daily_tasks') || 'null');
-      const localExams = JSON.parse(localStorage.getItem(`examprep_exams_${user.email}`) || localStorage.getItem('examprep_upcoming_exams') || 'null');
-      const localProfile = JSON.parse(localStorage.getItem(`examprep_profile_${user.email}`) || localStorage.getItem('examprep_student_profile') || 'null');
+      const localTasks = safeJsonParse(localStorage.getItem(`examprep_tasks_${user.email}`) || localStorage.getItem('examprep_daily_tasks'), null);
+      const localExams = safeJsonParse(localStorage.getItem(`examprep_exams_${user.email}`) || localStorage.getItem('examprep_upcoming_exams'), null);
+      const localProfile = safeJsonParse(localStorage.getItem(`examprep_profile_${user.email}`) || localStorage.getItem('examprep_student_profile'), null);
 
       // Tasks: Local edits on this device take precedence! If null, restore from backend.
       const effectiveTasks = (localTasks && localTasks.length > 0)
