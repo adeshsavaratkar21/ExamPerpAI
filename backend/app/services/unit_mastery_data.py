@@ -433,3 +433,4 @@ def build_comprehensive_unit_notes(
             r"T_{\text{total}} = T_{\text{compute}} + T_{\text{comm}}"
         ]
     }
+

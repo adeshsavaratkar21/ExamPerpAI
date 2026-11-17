@@ -38,13 +38,16 @@ export default function FileUploader({
 
   // Upload state
   const [showUploadZone, setShowUploadZone] = useState(true);
-  const [file, setFile] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploadSubjectId, setUploadSubjectId] = useState(selectedSubjectId || (subjects[0]?.id || 1));
   const [examYear, setExamYear] = useState('2024');
   const [examSession, setExamSession] = useState('End-Semester');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  const [isExtractingModuleWise, setIsExtractingModuleWise] = useState(false);
+  const [moduleBreakdown, setModuleBreakdown] = useState(null);
   const [extractedResult, setExtractedResult] = useState(null);
   const [expandedQuestionId, setExpandedQuestionId] = useState(null);
   const [selectedFilterType, setSelectedFilterType] = useState('All');
@@ -115,33 +118,47 @@ export default function FileUploader({
   }, [selectedSubjectId, subjects]);
 
   const handleFileChange = (e) => {
-    const selected = e.target.files[0];
-    if (selected) {
-      if (!selected.name.toLowerCase().endsWith('.pdf')) {
-        setErrorMsg('Please upload a PDF document (*.pdf).');
-        return;
-      }
-      setFile(selected);
+    const incoming = Array.from(e.target.files || []).filter(f => f.name.toLowerCase().endsWith('.pdf'));
+    if (incoming.length > 0) {
+      setSelectedFiles(prev => [...prev, ...incoming]);
       setErrorMsg('');
+    } else {
+      setErrorMsg('Please select valid PDF documents (*.pdf).');
     }
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const selected = e.dataTransfer.files[0];
-      if (!selected.name.toLowerCase().endsWith('.pdf')) {
-        setErrorMsg('Please upload a PDF document (*.pdf).');
-        return;
-      }
-      setFile(selected);
+    const incoming = Array.from(e.dataTransfer.files || []).filter(f => f.name.toLowerCase().endsWith('.pdf'));
+    if (incoming.length > 0) {
+      setSelectedFiles(prev => [...prev, ...incoming]);
       setErrorMsg('');
+    } else {
+      setErrorMsg('Please select valid PDF documents (*.pdf).');
+    }
+  };
+
+  const handleExtractModuleWise = async () => {
+    if (!uploadSubjectId) return;
+    setIsExtractingModuleWise(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+    try {
+      const res = await api.extractPYQModuleWise({ subject_id: Number(uploadSubjectId) });
+      setModuleBreakdown(res.data);
+      setSuccessMsg(res.data.message || 'Extracted and categorized questions module-wise!');
+      loadPapers();
+    } catch (err) {
+      console.error('Failed to extract questions module-wise:', err);
+      setErrorMsg(err.response?.data?.detail || 'Failed to extract module-wise questions.');
+    } finally {
+      setIsExtractingModuleWise(false);
     }
   };
 
   const handleUpload = async () => {
-    if (!file) {
-      setErrorMsg('Please select a PDF file first.');
+    if (!selectedFiles || selectedFiles.length === 0) {
+      setErrorMsg('Please select one or more PDF files first.');
       return;
     }
     if (!uploadSubjectId) {
@@ -151,51 +168,32 @@ export default function FileUploader({
 
     setIsUploading(true);
     setErrorMsg('');
+    setSuccessMsg('');
     setUploadProgress(20);
 
     const formData = new FormData();
-    formData.append('file', file);
+    selectedFiles.forEach((f) => {
+      formData.append('files', f);
+    });
+    if (selectedFiles.length === 1) {
+      formData.append('file', selectedFiles[0]);
+    }
     formData.append('subject_id', uploadSubjectId);
     formData.append('exam_year', examYear);
     formData.append('exam_session', examSession);
 
     try {
       setUploadProgress(60);
-      const res = await api.uploadPYQ(formData);
+      const res = selectedFiles.length > 1
+        ? await api.uploadPYQBatch(formData)
+        : await api.uploadPYQ(formData);
+
       setUploadProgress(100);
       setExtractedResult(res.data);
       if (onQuestionsExtracted) onQuestionsExtracted(res.data);
 
-      // Save in persistent local cache so paper survives across cold starts
-      try {
-        const currentLocal = JSON.parse(localStorage.getItem('examprep_cached_papers') || '{}');
-        const subCode = (Array.isArray(subjects) ? subjects.find(s => s.id === Number(uploadSubjectId))?.code : null) || activeSubCode;
-        const newPaper = {
-          id: res.data.doc_id || Date.now(),
-          subject_id: uploadSubjectId,
-          subject_code: subCode,
-          filename: file.name,
-          title: `${subCode} ${examYear} ${examSession} Question Paper`,
-          exam_year: examYear,
-          exam_type: examSession,
-          exam_tag: examSession.includes('Mid') ? 'MSE' : (examSession.includes('Re') ? 'KT' : 'ESE'),
-          month: 'University Examination',
-          file_url: `/api/pyq/documents/${res.data.doc_id || 1}/view`,
-          file_size: (file.size / (1024 * 1024)).toFixed(1) + ' MB',
-          is_official: true,
-          total_questions: res.data.total_extracted || 0
-        };
-
-        if (!currentLocal[subCode]) {
-          currentLocal[subCode] = { count: 1, papers: [newPaper], subject_name: subCode, subject_code: subCode };
-        } else {
-          currentLocal[subCode].papers = [newPaper, ...(currentLocal[subCode].papers || [])];
-          currentLocal[subCode].count = currentLocal[subCode].papers.length;
-        }
-        localStorage.setItem('examprep_cached_papers', JSON.stringify(currentLocal));
-      } catch (cacheErr) {
-        console.warn('Paper cache note:', cacheErr);
-      }
+      setSuccessMsg(res.data.message || `Successfully processed ${selectedFiles.length} paper(s) and categorized questions module-wise!`);
+      setSelectedFiles([]);
 
       loadPapers(); // Refresh library
     } catch (err) {
@@ -204,6 +202,14 @@ export default function FileUploader({
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const handleRemoveSelectedFile = (index) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleClearAllSelectedFiles = () => {
+    setSelectedFiles([]);
   };
 
   const handleImportPyqFromPath = async (e) => {
@@ -356,9 +362,9 @@ export default function FileUploader({
         </div>
 
         {/* Filter and Search Bar */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-6 p-3 rounded-2xl bg-[#F8F9FC] border border-gray-100">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 mb-6 p-3 rounded-2xl bg-[#F8F9FC] border border-gray-100">
           {/* Exam Tag Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
             <button
               onClick={() => setSelectedExamTag('All')}
               className={`px-3 py-1 rounded-xl text-xs font-bold transition-all shrink-0 ${
@@ -403,18 +409,66 @@ export default function FileUploader({
             )}
           </div>
 
-          {/* Search Input */}
-          <div className="relative w-full sm:w-64">
-            <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search by year (e.g. 2025, 2024)..."
-              value={papersSearchQuery}
-              onChange={(e) => setPapersSearchQuery(e.target.value)}
-              className="w-full bg-white border border-gray-200 rounded-xl py-1.5 pl-9 pr-3 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:border-gray-400 shadow-2xs"
-            />
+          {/* Module-Wise Extract Action & Search */}
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            <button
+              type="button"
+              onClick={handleExtractModuleWise}
+              disabled={isExtractingModuleWise || (currentSubData.papers?.length || 0) === 0}
+              title="Parse all papers for this subject and extract questions module-wise across all 6 units"
+              className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-500 disabled:opacity-40 text-gray-950 font-black text-xs transition-all shadow-2xs flex items-center gap-1.5 shrink-0 cursor-pointer"
+            >
+              <Sparkles className={`w-3.5 h-3.5 text-gray-950 ${isExtractingModuleWise ? 'animate-spin' : ''}`} />
+              <span>{isExtractingModuleWise ? 'Categorizing...' : '⚡ AI Extract Module-Wise'}</span>
+            </button>
+
+            <div className="relative w-full sm:w-60">
+              <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search by year (e.g. 2025)..."
+                value={papersSearchQuery}
+                onChange={(e) => setPapersSearchQuery(e.target.value)}
+                className="w-full bg-white border border-gray-200 rounded-xl py-1.5 pl-9 pr-3 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:border-gray-400 shadow-2xs"
+              />
+            </div>
           </div>
         </div>
+
+        {/* Module-Wise Question Breakdown Banner if active */}
+        {moduleBreakdown && (
+          <div className="mb-6 p-4 rounded-3xl bg-gradient-to-r from-amber-50/90 via-white to-emerald-50/60 border border-amber-300 shadow-xs animate-in fade-in">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-600" />
+                <h4 className="text-xs font-black uppercase text-amber-950">
+                  {moduleBreakdown.subject_name}: Module-Wise Question Breakdown ({moduleBreakdown.total_questions} Questions)
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModuleBreakdown(null)}
+                className="text-[10px] text-gray-500 hover:text-gray-900 font-extrabold cursor-pointer"
+              >
+                Dismiss ✕
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {moduleBreakdown.module_breakdown?.map((m) => (
+                <div key={m.chapter_id} className="p-2.5 rounded-2xl bg-white border border-amber-200/80 flex items-center justify-between shadow-2xs">
+                  <div className="min-w-0 pr-2">
+                    <p className="text-[11px] font-extrabold text-gray-900 truncate">
+                      {m.unit_number ? `Unit ${m.unit_number}: ` : ''}{m.chapter_name}
+                    </p>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 shrink-0">
+                    {m.questions_count} PYQs
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Papers Grid */}
         {loadingPapers ? (
@@ -554,7 +608,7 @@ export default function FileUploader({
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
             className={`border-2 border-dashed rounded-3xl p-8 sm:p-10 text-center cursor-pointer transition-all ${
-              file
+              selectedFiles.length > 0
                 ? 'border-emerald-400 bg-emerald-50/40'
                 : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50/50'
             }`}
@@ -562,26 +616,61 @@ export default function FileUploader({
             <input
               ref={fileInputRef}
               type="file"
+              multiple
               accept=".pdf"
               onChange={handleFileChange}
               className="hidden"
             />
 
             <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-white border border-gray-200 flex items-center justify-center text-gray-900 shadow-sm">
-              {file ? (
+              {selectedFiles.length > 0 ? (
                 <FileCheck className="w-7 h-7 text-emerald-600 animate-bounce" />
               ) : (
                 <FileText className="w-7 h-7 text-gray-600" />
               )}
             </div>
 
-            {file ? (
+            {selectedFiles.length > 0 ? (
               <div>
-                <p className="text-sm font-bold text-gray-900">{file.name}</p>
-                <p className="text-xs text-emerald-700 font-semibold mt-1">
-                  Ready to process ({(file.size / (1024 * 1024)).toFixed(2)} MB)
+                <p className="text-sm font-extrabold text-gray-900">
+                  {selectedFiles.length} Paper{selectedFiles.length > 1 ? 's' : ''} Selected
                 </p>
-                <div className="mt-3 flex items-center justify-center gap-2">
+                <p className="text-xs text-emerald-700 font-semibold mt-1">
+                  Ready to batch upload and extract module-wise ({(selectedFiles.reduce((acc, f) => acc + f.size, 0) / (1024 * 1024)).toFixed(2)} MB total)
+                </p>
+
+                {/* List of selected files with remove buttons */}
+                <div
+                  className="mt-4 max-h-40 overflow-y-auto space-y-1.5 px-2 max-w-md mx-auto text-left"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {selectedFiles.map((f, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between gap-2 p-2 rounded-xl bg-white/90 border border-emerald-200 text-xs shadow-2xs"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                        <span className="font-semibold text-gray-800 truncate" title={f.name}>
+                          {f.name}
+                        </span>
+                        <span className="text-[10px] text-gray-400 shrink-0">
+                          ({(f.size / 1024).toFixed(0)} KB)
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSelectedFile(idx)}
+                        className="w-5 h-5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 flex items-center justify-center shrink-0 font-bold"
+                        title="Remove file"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 flex items-center justify-center gap-2">
                   <button
                     type="button"
                     onClick={(e) => {
@@ -590,27 +679,27 @@ export default function FileUploader({
                     }}
                     className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white border border-gray-300 text-gray-800 hover:bg-gray-100 shadow-2xs cursor-pointer"
                   >
-                    Change File
+                    + Add More PDFs
                   </button>
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setFile(null);
+                      handleClearAllSelectedFiles();
                     }}
-                    className="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-50 text-rose-600 hover:bg-rose-100 shadow-2xs cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-rose-50 text-rose-600 hover:bg-rose-100 shadow-2xs cursor-pointer"
                   >
-                    Remove
+                    Clear All
                   </button>
                 </div>
               </div>
             ) : (
               <div>
                 <p className="text-sm font-extrabold text-gray-900">
-                  Drag & Drop University Question Paper PDF here
+                  Drag & Drop University Question Paper PDF(s) here
                 </p>
                 <p className="text-xs text-gray-400 mt-1 mb-3">
-                  Supported format: Official University Exam Question Paper (*.pdf)
+                  Upload one or multiple official question paper PDFs at once (*.pdf)
                 </p>
                 <button
                   type="button"
@@ -621,7 +710,7 @@ export default function FileUploader({
                   className="px-5 py-2.5 rounded-2xl bg-gray-950 text-white hover:bg-black text-xs font-extrabold shadow-sm inline-flex items-center gap-2 cursor-pointer transition-transform hover:scale-105 active:scale-95"
                 >
                   <UploadCloud className="w-4 h-4 text-accentYellow" />
-                  <span>Browse & Select PDF</span>
+                  <span>Browse & Select PDF(s)</span>
                 </button>
               </div>
             )}
@@ -679,7 +768,7 @@ export default function FileUploader({
               <button
                 type="button"
                 onClick={() => {
-                  if (!file) {
+                  if (selectedFiles.length === 0) {
                     fileInputRef.current?.click();
                   } else {
                     handleUpload();
@@ -689,7 +778,7 @@ export default function FileUploader({
                 className={`w-full py-2.5 px-4 rounded-xl text-xs font-extrabold shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
                   isUploading
                     ? 'bg-amber-100 text-amber-900 cursor-wait'
-                    : file
+                    : selectedFiles.length > 0
                     ? 'bg-accentYellow hover:bg-accentYellowHover text-gray-950 hover:scale-[1.02] active:scale-[0.98]'
                     : 'bg-gray-900 hover:bg-black text-white hover:scale-[1.02] active:scale-[0.98]'
                 }`}
@@ -697,17 +786,17 @@ export default function FileUploader({
                 {isUploading ? (
                   <>
                     <Sparkles className="w-4 h-4 animate-spin text-gray-950" />
-                    <span>Extracting Questions ({uploadProgress}%)...</span>
+                    <span>Extracting ({uploadProgress}%)...</span>
                   </>
-                ) : file ? (
+                ) : selectedFiles.length > 0 ? (
                   <>
                     <UploadCloud className="w-4 h-4 text-gray-950" />
-                    <span>Extract & Categorize PYQ</span>
+                    <span>Extract & Categorize ({selectedFiles.length} Paper{selectedFiles.length > 1 ? 's' : ''})</span>
                   </>
                 ) : (
                   <>
                     <UploadCloud className="w-4 h-4 text-amber-300" />
-                    <span>Choose PDF File to Upload</span>
+                    <span>Choose PDF File(s) to Upload</span>
                   </>
                 )}
               </button>

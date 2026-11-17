@@ -131,6 +131,37 @@ class PYQExtractResponse(BaseModel):
     questions: List[QuestionResponse]
 
 
+class PYQBatchExtractResponse(BaseModel):
+    success: bool
+    total_files: int
+    total_extracted: int
+    documents: List[dict]
+    questions_per_module: Dict[str, int]
+    message: str
+
+
+class PYQModuleExtractRequest(BaseModel):
+    subject_id: int
+    document_ids: Optional[List[int]] = None
+    force_reextract: bool = False
+
+
+class ModuleQuestionCount(BaseModel):
+    chapter_id: int
+    chapter_name: str
+    unit_number: Optional[int] = None
+    questions_count: int
+
+
+class PYQModuleExtractResponse(BaseModel):
+    success: bool
+    subject_id: int
+    subject_name: str
+    total_questions: int
+    module_breakdown: List[ModuleQuestionCount]
+    message: str
+
+
 # ---------------- QUIZ SCHEMAS ---------------- #
 class QuizGenerateRequest(BaseModel):
     subject_id: int

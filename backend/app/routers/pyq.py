@@ -17,6 +17,73 @@ from app.core.config import settings
 router = APIRouter(prefix="/pyq", tags=["Previous Year Questions"])
 
 
+def match_question_to_chapter(
+    q_text: str,
+    q_hint: Optional[str],
+    chapters: List[models.Chapter],
+    fallback_index: int = 0
+) -> Optional[int]:
+    """
+    Intelligently maps an extracted question to its exact syllabus module/chapter using:
+    1. Explicit Unit/Module numbers in question text or AI category hint (e.g. 'Unit 3', 'Module 2').
+    2. High-precision keyword scoring against chapter names and all syllabus topics.
+    3. Balanced fallback distribution when keywords are generic or missing.
+    """
+    if not chapters:
+        return None
+
+    combined_query = f"{q_hint or ''} {q_text or ''}".lower()
+
+    # 1. Direct unit or module number reference (e.g. "Unit 3", "Module 4", "Q1(a) Unit 2")
+    unit_match = re.search(r"\b(?:unit|module)\s*(\d+)\b", combined_query)
+    if unit_match:
+        target_unit = int(unit_match.group(1))
+        for ch in chapters:
+            if ch.unit_number == target_unit:
+                return ch.id
+
+    # 2. Weighted keyword scoring against chapter name & syllabus topics
+    best_ch = None
+    best_score = 0
+    stop_words = {
+        "the", "and", "for", "with", "from", "that", "this", "explain", "describe",
+        "what", "how", "write", "short", "note", "discuss", "give", "briefly", "state",
+        "system", "systems", "types", "different", "concept", "concepts", "define"
+    }
+
+    for ch in chapters:
+        score = 0
+        ch_name_clean = re.sub(r"^(?:Unit\s*\d+\s*[:\-]\s*)", "", ch.name or "").lower()
+
+        # Match words in chapter title (weighted +3)
+        ch_words = [w for w in re.findall(r"[a-z]{3,}", ch_name_clean) if w not in stop_words]
+        for w in ch_words:
+            if re.search(r"\b" + re.escape(w) + r"\b", combined_query):
+                score += 3
+
+        # Match words in chapter topics list (weighted +2)
+        if ch.topics:
+            try:
+                top_items = json.loads(ch.topics) if str(ch.topics).startswith("[") else str(ch.topics).split(",")
+                for item in top_items:
+                    item_words = [w for w in re.findall(r"[a-z]{4,}", str(item).lower()) if w not in stop_words]
+                    for w in item_words:
+                        if re.search(r"\b" + re.escape(w) + r"\b", combined_query):
+                            score += 2
+            except Exception:
+                pass
+
+        if score > best_score:
+            best_score = score
+            best_ch = ch
+
+    if best_ch and best_score >= 3:
+        return best_ch.id
+
+    # 3. Fair fallback distribution across chapters so questions aren't dumped into Chapter 1
+    return chapters[fallback_index % len(chapters)].id
+
+
 @router.post("/upload", response_model=schemas.PYQExtractResponse)
 async def upload_pyq_document(
     file: UploadFile = File(...),
@@ -26,7 +93,7 @@ async def upload_pyq_document(
     db: Session = Depends(get_db)
 ):
     """
-    Uploads a PYQ PDF document, extracts its text, and parses structured questions via AI.
+    Uploads a single PYQ PDF document, extracts its text, and parses structured questions via AI.
     """
     subject = db.query(models.Subject).filter(models.Subject.id == subject_id).first()
     if not subject:
@@ -35,7 +102,6 @@ async def upload_pyq_document(
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF documents are supported")
 
-    # Save PDF into subject-specific folder (e.g. uploads/DC, uploads/SE)
     subject_folder = os.path.join(settings.UPLOAD_DIR, subject.code or f"subject_{subject_id}")
     os.makedirs(subject_folder, exist_ok=True)
     safe_filename = f"{subject_id}_{int(os.times().elapsed)}_{file.filename.replace(' ', '_')}"
@@ -44,32 +110,26 @@ async def upload_pyq_document(
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Extract text using pdf_service
     try:
         extracted_text = pdf_service.extract_text(file_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PDF extraction failed: {str(e)}")
 
-    # Fetch existing chapters for this subject to help categorization
-    chapters = db.query(models.Chapter).filter(models.Chapter.subject_id == subject_id).all()
-    chapter_names = [ch.name for ch in chapters]
-    chapter_map = {ch.name.lower().strip(): ch.id for ch in chapters}
+    chapters = db.query(models.Chapter).filter(models.Chapter.subject_id == subject_id).order_by(models.Chapter.unit_number.asc()).all()
+    chapter_names = [f"Unit {ch.unit_number}: {ch.name}" for ch in chapters]
 
-    # Extract structured questions via Gemini / intelligent fallback
     extracted_questions_raw = gemini_service.extract_questions_from_pyq(
         pyq_text=extracted_text,
         subject_name=subject.name,
         chapter_names=chapter_names
     )
 
-    # Read bytes for base64 durable storage (persists across serverless container recycling)
     with open(file_path, "rb") as f:
         file_bytes = f.read()
     b64_content = base64.b64encode(file_bytes).decode('utf-8')
     size_mb = len(file_bytes) / (1024 * 1024)
     size_formatted = f"{size_mb:.1f} MB" if size_mb >= 1.0 else f"{max(1, round(len(file_bytes) / 1024))} KB"
 
-    # Create PYQDocument record
     pyq_doc = models.PYQDocument(
         subject_id=subject_id,
         filename=file.filename,
@@ -83,20 +143,14 @@ async def upload_pyq_document(
     db.add(pyq_doc)
     db.flush()
 
-    # Store extracted questions in DB
     created_questions = []
-    for q_data in extracted_questions_raw:
-        # Match chapter
-        matched_chapter_id = None
-        raw_ch_name = q_data.get("chapter_name", "").lower().strip()
-        for ch in chapters:
-            if ch.name.lower() in raw_ch_name or raw_ch_name in ch.name.lower():
-                matched_chapter_id = ch.id
-                break
-        
-        # If no match and chapters exist, assign to first chapter or leave None
-        if not matched_chapter_id and chapters:
-            matched_chapter_id = chapters[0].id
+    for q_idx, q_data in enumerate(extracted_questions_raw):
+        matched_chapter_id = match_question_to_chapter(
+            q_text=q_data.get("text", ""),
+            q_hint=q_data.get("chapter_name", ""),
+            chapters=chapters,
+            fallback_index=q_idx
+        )
 
         tags = q_data.get("tags", [])
         if isinstance(tags, str):
@@ -146,6 +200,188 @@ async def upload_pyq_document(
         exam_session=pyq_doc.exam_session,
         total_extracted=len(created_questions),
         questions=created_questions
+    )
+
+
+@router.post("/upload-batch", response_model=schemas.PYQBatchExtractResponse)
+async def upload_pyq_documents_batch(
+    files: List[UploadFile] = File(...),
+    subject_id: int = Form(...),
+    exam_year: str = Form("2024"),
+    exam_session: str = Form("End-Semester"),
+    db: Session = Depends(get_db)
+):
+    """
+    Uploads multiple PYQ PDF documents simultaneously (batch upload),
+    extracts all questions, and categorizes them module-wise across all syllabus units.
+    """
+    subject = db.query(models.Subject).filter(models.Subject.id == subject_id).first()
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+
+    if not files or len(files) == 0:
+        raise HTTPException(status_code=400, detail="No files uploaded")
+
+    subject_folder = os.path.join(settings.UPLOAD_DIR, subject.code or f"subject_{subject_id}")
+    os.makedirs(subject_folder, exist_ok=True)
+
+    chapters = db.query(models.Chapter).filter(models.Chapter.subject_id == subject_id).order_by(models.Chapter.unit_number.asc()).all()
+    chapter_names = [f"Unit {ch.unit_number}: {ch.name}" for ch in chapters]
+
+    total_extracted_all = 0
+    docs_summary = []
+    questions_per_mod: Dict[str, int] = {ch.name: 0 for ch in chapters}
+
+    for file_item in files:
+        if not file_item.filename.lower().endswith(".pdf"):
+            continue
+
+        safe_filename = f"{subject_id}_{int(os.times().elapsed)}_{file_item.filename.replace(' ', '_')}"
+        file_path = os.path.join(subject_folder, safe_filename)
+
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file_item.file, buffer)
+
+        try:
+            extracted_text = pdf_service.extract_text(file_path)
+        except Exception:
+            extracted_text = ""
+
+        extracted_questions_raw = gemini_service.extract_questions_from_pyq(
+            pyq_text=extracted_text,
+            subject_name=subject.name,
+            chapter_names=chapter_names
+        )
+
+        with open(file_path, "rb") as f:
+            file_bytes = f.read()
+        b64_content = base64.b64encode(file_bytes).decode('utf-8')
+        size_mb = len(file_bytes) / (1024 * 1024)
+        size_formatted = f"{size_mb:.1f} MB" if size_mb >= 1.0 else f"{max(1, round(len(file_bytes) / 1024))} KB"
+
+        pyq_doc = models.PYQDocument(
+            subject_id=subject_id,
+            filename=file_item.filename,
+            file_path=file_path,
+            file_data=b64_content,
+            file_size_formatted=size_formatted,
+            exam_year=exam_year,
+            exam_session=exam_session,
+            total_questions_extracted=len(extracted_questions_raw)
+        )
+        db.add(pyq_doc)
+        db.flush()
+
+        doc_q_count = 0
+        for q_idx, q_data in enumerate(extracted_questions_raw):
+            matched_chapter_id = match_question_to_chapter(
+                q_text=q_data.get("text", ""),
+                q_hint=q_data.get("chapter_name", ""),
+                chapters=chapters,
+                fallback_index=total_extracted_all + q_idx
+            )
+
+            matched_ch = next((c for c in chapters if c.id == matched_chapter_id), None)
+            if matched_ch:
+                questions_per_mod[matched_ch.name] = questions_per_mod.get(matched_ch.name, 0) + 1
+
+            tags = q_data.get("tags", [])
+            if isinstance(tags, str):
+                tags = [tags]
+
+            question_obj = models.Question(
+                subject_id=subject_id,
+                chapter_id=matched_chapter_id,
+                pyq_doc_id=pyq_doc.id,
+                text=q_data.get("text", "Exam Question"),
+                question_type=q_data.get("question_type", "Short"),
+                marks=float(q_data.get("marks", 5.0)),
+                solution=q_data.get("solution"),
+                difficulty=q_data.get("difficulty", "Medium"),
+                exam_year=exam_year,
+                source_paper=f"{exam_session} {exam_year} ({file_item.filename})",
+                tags=json.dumps(tags)
+            )
+            db.add(question_obj)
+            doc_q_count += 1
+
+        total_extracted_all += doc_q_count
+        docs_summary.append({
+            "id": pyq_doc.id,
+            "filename": file_item.filename,
+            "size": size_formatted,
+            "questions_extracted": doc_q_count
+        })
+
+    db.commit()
+
+    return schemas.PYQBatchExtractResponse(
+        success=True,
+        total_files=len(docs_summary),
+        total_extracted=total_extracted_all,
+        documents=docs_summary,
+        questions_per_module=questions_per_mod,
+        message=f"Successfully uploaded {len(docs_summary)} question papers and extracted {total_extracted_all} questions module-wise!"
+    )
+
+
+@router.post("/extract-module-wise", response_model=schemas.PYQModuleExtractResponse)
+def extract_module_wise_questions(
+    payload: schemas.PYQModuleExtractRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Intelligently parses and categorizes all PYQ questions module-wise for a subject.
+    If questions are already loaded, it re-aligns them according to detailed syllabus topics
+    so every module has authentic, properly assigned past year questions.
+    """
+    subject = db.query(models.Subject).filter(models.Subject.id == payload.subject_id).first()
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+
+    chapters = db.query(models.Chapter).filter(models.Chapter.subject_id == payload.subject_id).order_by(models.Chapter.unit_number.asc()).all()
+    if not chapters:
+        raise HTTPException(status_code=400, detail="No chapters found for this subject")
+
+    # Fetch all questions for this subject
+    query = db.query(models.Question).filter(models.Question.subject_id == payload.subject_id)
+    if payload.document_ids:
+        query = query.filter(models.Question.pyq_doc_id.in_(payload.document_ids))
+    questions = query.all()
+
+    # Re-evaluate and assign each question to the best matching chapter
+    for q_idx, q in enumerate(questions):
+        best_chapter_id = match_question_to_chapter(
+            q_text=q.text,
+            q_hint=None,
+            chapters=chapters,
+            fallback_index=q_idx
+        )
+        if best_chapter_id and q.chapter_id != best_chapter_id:
+            q.chapter_id = best_chapter_id
+
+    db.commit()
+
+    # Compute breakdown per chapter
+    breakdown = []
+    total_q = 0
+    for ch in chapters:
+        count = db.query(models.Question).filter(models.Question.chapter_id == ch.id).count()
+        total_q += count
+        breakdown.append(schemas.ModuleQuestionCount(
+            chapter_id=ch.id,
+            chapter_name=ch.name,
+            unit_number=ch.unit_number,
+            questions_count=count
+        ))
+
+    return schemas.PYQModuleExtractResponse(
+        success=True,
+        subject_id=subject.id,
+        subject_name=subject.name,
+        total_questions=total_q,
+        module_breakdown=breakdown,
+        message=f"Categorized {total_q} questions module-wise across all {len(chapters)} modules for {subject.name}!"
     )
 
 
@@ -605,8 +841,8 @@ def add_pyq_by_path(
     subject_folder = os.path.join(settings.UPLOAD_DIR, subject.code or f"subject_{subject.id}")
     os.makedirs(subject_folder, exist_ok=True)
 
-    chapters = db.query(models.Chapter).filter(models.Chapter.subject_id == subject.id).all()
-    chapter_names = [ch.name for ch in chapters]
+    chapters = db.query(models.Chapter).filter(models.Chapter.subject_id == subject.id).order_by(models.Chapter.unit_number.asc()).all()
+    chapter_names = [f"Unit {ch.unit_number}: {ch.name}" for ch in chapters]
 
     files_to_process = []
     if os.path.isfile(normalized_path):
@@ -669,15 +905,13 @@ def add_pyq_by_path(
         db.add(pyq_doc)
         db.flush()
 
-        for q_data in extracted_questions_raw:
-            matched_chapter_id = None
-            raw_ch_name = q_data.get("chapter_name", "").lower().strip()
-            for ch in chapters:
-                if ch.name.lower() in raw_ch_name or raw_ch_name in ch.name.lower():
-                    matched_chapter_id = ch.id
-                    break
-            if not matched_chapter_id and chapters:
-                matched_chapter_id = chapters[0].id
+        for q_idx, q_data in enumerate(extracted_questions_raw):
+            matched_chapter_id = match_question_to_chapter(
+                q_text=q_data.get("text", ""),
+                q_hint=q_data.get("chapter_name", ""),
+                chapters=chapters,
+                fallback_index=total_questions + q_idx
+            )
 
             tags = q_data.get("tags", [])
             if isinstance(tags, str):

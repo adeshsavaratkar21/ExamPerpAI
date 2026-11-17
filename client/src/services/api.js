@@ -27,6 +27,11 @@ export const api = {
     client.post('/pyq/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
+  uploadPYQBatch: (formData) =>
+    client.post('/pyq/upload-batch', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+  extractPYQModuleWise: (data) => client.post('/pyq/extract-module-wise', data),
   addPYQByPath: (data) => client.post('/pyq/add-by-path', data),
   getPYQDocuments: (subjectId) =>
     client.get('/pyq/documents', { params: { subject_id: subjectId } }),
